@@ -45,6 +45,7 @@ public:
 	);
 	Shader& getShader(uint32_t shaderIndex);
 	void setShadowShaders(const uint32_t shaderIndex);
+	void setShadowShaders(Shader& shader);
 	void setShader(const uint32_t shaderIndex);
 	void setShader(Shader& shader);
 	void setComputeShader(const uint32_t shaderIndex);

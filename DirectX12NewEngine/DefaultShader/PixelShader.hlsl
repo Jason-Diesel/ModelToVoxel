@@ -56,13 +56,18 @@ float2 getRandomPosition(uint size, float2 uvNoise)
 
 float shadowLevel(float bias, int lightIndex, float3 shadowMapChoords)
 {
+    if (LightPosoLightType[lightIndex].w == 0)
+    {
+        return 0;
+    }
     const int shadowSoftness = int(ShadowMapInfo[lightIndex].y);
-    Texture2D shadowMap = bindless_textures[ShadowMapInfo[lightIndex].x];
+    uint shadowMapIndexInTextures = ShadowMapInfo[lightIndex].x;
+    Texture2D shadowMap = bindless_textures[shadowMapIndexInTextures];
     uint width, height;
     shadowMap.GetDimensions(width, height);
     const float2 pixelSize = float2(1.0 / width, 1.0 / height);
     float shadowReturn = 0;
-
+    
     if (shadowSoftness <= 0)
     {
         float sm = shadowMap.SampleLevel(samp, shadowMapChoords.xy, 0).r;
@@ -114,20 +119,12 @@ float shadowLevel(float bias, int lightIndex, float3 shadowMapChoords)
    //return (shadowReturn / (4.0 * shadowSoftness * shadowSoftness));
 }
 
-Texture2D getTexture(uint textureIndex)
-{
-    if (textureIndex > MAXNROFMATERIALS)
-    {
-        return bindless_textures[0];
-    }
-    return bindless_textures[textureIndex];
-}
-
 float4 main(PixelShaderInput input) : SV_TARGET
 {
     //DEBUG
     float3 normal = input.TBN[2];
-    if ((materialIndex.x >= MAXNROFMATERIALS || materialIndex.x < 0))
+    if ((materialIndex.x >= MAXNROFMATERIALS || materialIndex.x < 0) ||
+        (materialIndex.y >= MAXNROFMATERIALS || materialIndex.y < 0))
     {
         return float4(1, 0, 0, 1);
     }
@@ -151,6 +148,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
         discard;
     }
     
+    float3 ka = float3(0, 0, 0);
     float3 resultColor = float3(0, 0, 0);
     
     for (uint i = 0; i < nrOfLights; i++)

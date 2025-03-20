@@ -111,8 +111,6 @@ void Engine::update()
 			mouse->activateMouse(!mouse->getMouseActive());
 		}
 	
-		
-	
 		shadowMapsManager.update(lightHandler);
 	
 		//UPDATE LIGHT INFORMATION
@@ -128,6 +126,7 @@ void Engine::update()
 void Engine::render()
 {
 	//SET SHADOWMAP SHADER
+	renderer.ShadowReady();
 	shaderHandler.setShadowShaders(0);
 	shadowMapsManager.setAsDepthPass();
 	shadowMapsManager.clearDeapthStencils();
@@ -143,8 +142,7 @@ void Engine::render()
 		}
 		
 		shadowMapsManager.SetAsDepthStencil(shadowMapIndex);
-		lightHandler.setLightAsPOV(shadowMapIndex);
-		renderer.ShadowReady();
+		lightHandler.setLightAsPOV(i);
 		sceneManager.render();
 		shadowMapIndex++;
 	}

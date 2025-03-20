@@ -97,9 +97,24 @@ Shader& ShaderHandler::getShader(uint32_t shaderIndex)
 
 void ShaderHandler::setShadowShaders(const uint32_t shaderIndex)
 {
+	if (!renderer->isMakingShadows())
+	{
+		return;
+	}
 	gfx->getCommandList()->IASetPrimitiveTopology(shaders[shaderIndex].getTopology());
 	gfx->getCommandList()->SetPipelineState(shaders[shaderIndex].getPipeLineState());
 	gfx->getCommandList()->SetGraphicsRootSignature(shaders[shaderIndex].getRootSignature());
+}
+
+void ShaderHandler::setShadowShaders(Shader& shader)
+{
+	if (!renderer->isMakingShadows())
+	{
+		return;
+	}
+	gfx->getCommandList()->IASetPrimitiveTopology(shader.getTopology());
+	gfx->getCommandList()->SetPipelineState(shader.getPipeLineState());
+	gfx->getCommandList()->SetGraphicsRootSignature(shader.getRootSignature());
 }
 
 void ShaderHandler::setShader(const uint32_t shaderIndex)

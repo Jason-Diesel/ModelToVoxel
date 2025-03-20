@@ -2,6 +2,10 @@
 
 void WriteVoxelToFile(const DirectX::XMUINT3& sizes, Voxel* voxelGrid, const std::string& fileName)
 {
+	//struct stat buffer;
+	//if ((stat(fileName.c_str(), &buffer) == 0)) {
+	//	//Delete it
+	//}
 	std::ofstream file;
 	file.open(fileName, std::ios::out | std::ios::binary | std::ios::app);
 	if(!file.is_open()){
@@ -16,6 +20,10 @@ void WriteVoxelToFile(const DirectX::XMUINT3& sizes, Voxel* voxelGrid, const std
 
 void ReadVoxelFromFile(DirectX::XMUINT3& sizes, Voxel*& voxelGrid, const std::string& fileName)
 {
+	struct stat buffer;
+	if (!(stat(fileName.c_str(), &buffer) == 0)) {
+		return;
+	}
 	std::ifstream file;
 	file.open(fileName, std::ios::out | std::ios::binary | std::ios::app);
 	if (!file.is_open()) {

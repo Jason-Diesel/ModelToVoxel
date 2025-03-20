@@ -111,7 +111,6 @@ float shadowLevel(float bias, int lightIndex, float3 shadowMapChoords)
 
 float4 main(PixelShaderInput input) : SV_TARGET
 {
-    //DEBUG
     if (materialIndex.x >= MAXNROFMATERIALS || materialIndex.x < 0)
     {
         return float4(1, 0, 0, 1);

@@ -58,7 +58,7 @@ void Renderer::render(Object* object)
 
 void Renderer::render(Model* model)
 {
-	for (uint32_t i = 0; i < model->nrOfSubMeshes && i < 22; i++)
+	for (uint32_t i = 0; i < model->nrOfSubMeshes; i++)
 	{
 		render(model->subMeshes[i]);
 	}

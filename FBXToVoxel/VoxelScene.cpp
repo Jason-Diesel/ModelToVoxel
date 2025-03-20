@@ -1,6 +1,7 @@
 #include "VoxelScene.h"
 //#include "VoxelShaderClass.h"
 #include "SpecialVoxelShader.h"
+#include "ModelToVoxel.h"
 
 
 VoxelScene::VoxelScene()
@@ -34,6 +35,15 @@ void VoxelScene::Start()
         "VoxelVertexShader.cso",
         "VoxelPixelShader.cso"
     );
+    shaderPtrForShadowVoxel = new SpecialVoxelShader();
+    ((SpecialVoxelShader*)shaderPtrForShadowVoxel)->initS(
+        gfx->getDevice(),
+        0,
+        once,
+        gfx->getInputLayout(2),
+        "VoxelVertexShader.cso",
+        "VoxelPixelShader.cso"
+    );
     //voxelShader = shaderHandler->createShader(
     //    0,
     //    once,
@@ -57,6 +67,11 @@ void VoxelScene::Start()
 	this->VoxelPosition.init(1000, gfx->getDevice());
     theVoxelModel = GetBoxModel(1, 200);
 
+    //Model* Sponza = this->fileReader->readModel("../Models/Sponza.obj");
+    //uint32_t SponzaObj = objectManager.createAnObject();
+    //objectManager.getObject(SponzaObj)->addComponent(Sponza);
+    //objectManager.getObject(SponzaObj)->setScale(DirectX::XMFLOAT3(0.3, 0.3, 0.3));
+
     Model* CameraModel = this->fileReader->readModel("../Models/Camera.fbx");
     LightObject = objectManager.createAnObject();
     objectManager.getObject(LightObject)->addComponent(CameraModel);
@@ -75,11 +90,6 @@ void VoxelScene::Start()
     Material* ShadowMaterial = new Material(gfx, shadowTex, MaterialType::DIFFUSE_TEXTURE, sizeof(DefaultMaterialData), &AAAA);
 
     PlaneModel->subMeshes[0].material = ShadowMaterial;
-
-    Model* Sponza = this->fileReader->readModel("../Models/Sponza.obj");
-    uint32_t SponzaObj = objectManager.createAnObject();
-    objectManager.getObject(SponzaObj)->addComponent(Sponza);
-    objectManager.getObject(SponzaObj)->setScale(DirectX::XMFLOAT3(0.3,0.3,0.3));
 
 }
 
@@ -139,37 +149,37 @@ void VoxelScene::Update(const float& dt)
 void VoxelScene::Render()
 {
     const std::vector<Object*> allObjects = objectManager.getAllObjects();
-    //for (int i = 0; i < allObjects.size(); i++)
-    //{
-    //    renderer->render(allObjects[i]);
-    //}
-    //renderer->render(allObjects[2]);
-    renderer->render(allObjects[3]);
+    for (int i = 0; i < allObjects.size(); i++)
+    {
+        renderer->render(allObjects[i]);
+    }
+    //renderer->render(allObjects[0]);
     //VoxelPosition//SET DESCRIPTOR HEAP
     //shaderHandler->setShader(voxelShader);
-    //shaderHandler->setShader(*(Shader*)shaderPtrForVoxel);
-    //const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    //
-    //const uint32_t nrOfShadowMaps = this->lights->getNrOfActiveShadowMaps();//(For default material);
-    //if (nrOfShadowMaps > MAXNROFLIGHTS)
-    //{
-    //    std::cout << "what the fuck?" << std::endl;
-    //}
-    //gfx->getCommandList()->SetGraphicsRootDescriptorTable(5, gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
-    //
-    //for (auto& itx : chunks) {
-    //    for (auto& ity : itx.second) {
-    //        for (auto& itz : ity.second) {
-    //
-    //            CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
-    //            srvGpuHandle.Offset(itz.second->cbData.bindlessTextureIndex, descriptorSize);
-    //            gfx->getCommandList()->SetGraphicsRootDescriptorTable(4, srvGpuHandle);
-    //            
-    //            itz.second->setConstantBuffers(gfx);//SET many times
-    //            renderer->render(itz.second);//Set many times
-    //        }
-    //    }
-    //}
+    if (renderer->isMakingShadows())
+    {
+        return;
+    }
+    shaderHandler->setShader(*(Shader*)shaderPtrForVoxel);
+    shaderHandler->setShadowShaders(*(Shader*)shaderPtrForShadowVoxel);
+    const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    
+    const uint32_t nrOfShadowMaps = this->lights->getNrOfActiveShadowMaps();//(For default material);
+    gfx->getCommandList()->SetGraphicsRootDescriptorTable(5, gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
+    
+    for (auto& itx : chunks) {
+        for (auto& ity : itx.second) {
+            for (auto& itz : ity.second) {
+    
+                CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
+                srvGpuHandle.Offset(itz.second->cbData.bindlessTextureIndex, descriptorSize);
+                gfx->getCommandList()->SetGraphicsRootDescriptorTable(4, srvGpuHandle);
+                
+                itz.second->setConstantBuffers(gfx);//SET many times
+                renderer->render(itz.second);//Set many times
+            }
+        }
+    }
 }
 
 void VoxelScene::RenderUI()
@@ -178,10 +188,22 @@ void VoxelScene::RenderUI()
     {
         if (ImGui::Button("Start"))
         {
+            const uint32_t VoxelSize = 2;
             //load VoxelModel
             DirectX::XMUINT3 sizes;
-            Voxel* voxelGrid;
+            Voxel* voxelGrid = nullptr;
             ReadVoxelFromFile(sizes, voxelGrid, "../Models/VoxelTest.vox");
+
+            if (voxelGrid == nullptr)
+            {
+                ImGui::End();
+                return;
+            }
+
+            spinAround = DirectX::XMFLOAT3(
+                (sizes.x / 2) * VoxelSize, 
+                (sizes.y / 3) * VoxelSize,
+                (sizes.z / 2) * VoxelSize);
 
             //convertData
             DirectX::XMUINT3 nrOfChunksInDirection;
@@ -225,7 +247,7 @@ void VoxelScene::RenderUI()
                     }
                 }
             }
-
+            
             for (int i = 0; i < nrOfChunks; i++)
             {
                 TextureViewClass* voxelTextureData = createTexture(
@@ -244,10 +266,15 @@ void VoxelScene::RenderUI()
                 Chunk* theChunk = new Chunk(gfx);
                 chunks[chunkX][chunkY][chunkZ] = theChunk;
 
-                theChunk->setPosition(DirectX::XMFLOAT3(chunkX * chunkSize, chunkY * chunkSize, chunkZ * chunkSize));
+                theChunk->setPosition(DirectX::XMFLOAT3(chunkX * chunkSize * VoxelSize, 
+                                                        chunkY * chunkSize * VoxelSize, 
+                                                        chunkZ * chunkSize * VoxelSize));
+                theChunk->setScale(DirectX::XMFLOAT3(VoxelSize,
+                                                     VoxelSize,
+                                                     VoxelSize
+                ));
                 theChunk->addComponent(theVoxelModel);
 
-                //theChunk->cbData.bindlessTextureIndex = VoxelPosition.createSRV(voxelTextureData, gfx);
                 static uint32_t nrOfChunks = 0;
                 theChunk->cbData.bindlessTextureIndex = gfx->getTextureHeap().createSRV(nrOfChunks + MAXNROFLIGHTS, voxelTextureData, gfx->getDevice());
                 nrOfChunks++;
@@ -339,6 +366,10 @@ void VoxelScene::RenderUI()
             
             delete[] convertedData;
         }
+        if (ImGui::Button("VoxelCreator"))
+        {
+            sceneManager->setScene(new ModelToVoxel());
+        }
     }
     
     ImGui::End();
@@ -416,8 +447,8 @@ Model* VoxelScene::GetBoxModel(const int size, const int NrOfBlocks)
     theReturnModel->subMeshes[0].indeciesBuffer = createIndeciesBuffer(
         indecies,
         gfx->getDevice(),
-        gfx->getCommandList(1),
-        gfx->getCommandAllocator(1),
+        gfx->getCommandList(0),
+        gfx->getCommandAllocator(0),
         gfx->getCommandQueue(),
         gfx->getFenceEvent(),
         gfx->getFence(),

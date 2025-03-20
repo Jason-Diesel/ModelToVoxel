@@ -22,9 +22,12 @@ private:
 
 	uint32_t voxelShader;
 	Shader* shaderPtrForVoxel;
+	Shader* shaderPtrForShadowVoxel;
 
 	std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, Chunk*>>> chunks;
 	//Chunk* testChunk;
 
 	uint32_t LightObject, LightObject2;
+
+	DirectX::XMFLOAT3 spinAround;
 };
