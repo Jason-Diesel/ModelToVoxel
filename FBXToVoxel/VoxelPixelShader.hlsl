@@ -17,8 +17,7 @@ cbuffer MVP : register(b0)
 
 cbuffer MaterialBuffer : register(b2)
 {
-    //int materialFlag;
-    int4 materialIndex;//Diffuse, Normal, Height, LightTexture
+    int4 materialIndex;//Diffuse, LOD
 }
 
 cbuffer LightData : register(b3)
@@ -72,41 +71,19 @@ float shadowLevel(float bias, int lightIndex, float3 shadowMapChoords)
     const float2 pixelSize = float2(1.0 / width, 1.0 / height);
     float shadowReturn = 0;
 
-    if (shadowSoftness <= 0)
+    //SOFT SHADOWS BUT CAN BE HARD
+    for (int y = -shadowSoftness; y <= shadowSoftness; y++)
     {
-        float sm = shadowMap.SampleLevel(samp, shadowMapChoords.xy, 0).r;
-        if (sm + bias < shadowMapChoords.z)
+        for (int x = -shadowSoftness; x <= shadowSoftness; x++)
         {
-            shadowReturn = 1.0;
-        }
-        return shadowReturn;
-    }
-    //TODO : CHECK WICH ONE IS FASTER
-    //SOFT SHADOWS BUT CAN BE BRUSIG
-    const int numberOfTestsInOneGo = 7;
-    int TotalNumberOfTests = 0;
-    int testTo = 0;
-    for (int y = shadowSoftness; y > 0; y--)
-    {
-        for (int x = 0; x < numberOfTestsInOneGo; x++)
-        {
-            TotalNumberOfTests++;
-            float2 randomPos = getRandomPosition(y, float2(shadowMapChoords.xy + float2(x, y)));
-            float sm = shadowMap.SampleLevel(samp, float2(shadowMapChoords.xy + randomPos * pixelSize), 0).r;
+            float sm = shadowMap.SampleLevel(samp, float2(shadowMapChoords.xy + float2(x, y) * pixelSize), 0).r;
             if (sm + bias < shadowMapChoords.z)
             {
-                testTo++;
                 shadowReturn += 1.0;
             }
         }
-        if (testTo >= numberOfTestsInOneGo)
-        {
-            break;
-            
-        }
-        testTo = 0;
     }
-    return (shadowReturn / (TotalNumberOfTests));
+    return (shadowReturn / (4.0 * shadowSoftness * shadowSoftness));
 }
 
 float4 main(PixelShaderInput input) : SV_TARGET
@@ -117,7 +94,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
     }
     
     int4 location = int4(input.localPosition.xyz, 0);
-    if (location.x > 200 || location.y > 200 || location.z > 200 ||
+    if (location.x > 256 || location.y > 256 || location.z > 256 ||
         location.x < 0 || location.y < 0 || location.z < 0)
     {
         discard;
@@ -130,7 +107,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
         discard;
     }
     
-    const float3 ka = float3(0.01, 0.01, 0.01);
+    const float3 ka = float3(0.1, 0.1, 0.1);
     const float Shininess = 32.f;
     const float specularStrength = 0.5f;
     const float3 viewDir = normalize(input.fragpos.xyz - cameraPos.xyz);

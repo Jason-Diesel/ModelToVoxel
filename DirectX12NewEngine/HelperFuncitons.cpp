@@ -64,6 +64,15 @@ float HF::distance(const DirectX::XMINT3& a, const DirectX::XMINT3& b)
 	return sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+float HF::distance(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+{
+	const float dx = a.x - b.x;
+	const float dy = a.y - b.y;
+	const float dz = a.z - b.z;
+
+	return sqrt(dx * dx + dy * dy + dz * dz);
+}
+
 std::wstring HF::getCurrentDirectory()
 {
 	TCHAR buffer[MAX_PATH] = { 0 };

@@ -34,6 +34,7 @@ namespace HF {
 	DirectX::XMFLOAT3 add(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b);
 	float squareDistance(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b);
 	float distance(const DirectX::XMINT3& a, const DirectX::XMINT3& b);
+	float distance(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b);
 
 	std::wstring getCurrentDirectory();
 

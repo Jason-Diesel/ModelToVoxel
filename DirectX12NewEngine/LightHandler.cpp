@@ -104,6 +104,12 @@ void LightHandler::setLightAsPOV(uint32_t lightIndex)
 	dynamicViewPort.Width = lights[lightIndex]->getShadowMapSize().x;
 	dynamicViewPort.Height = lights[lightIndex]->getShadowMapSize().y;
 	gfx->getCommandList()->RSSetViewports(1, &this->dynamicViewPort);
+	this->currentLight = lightIndex;
+}
+
+void LightHandler::setCurrentLightAsPOV()
+{
+	gfx->getCommandList()->SetGraphicsRootConstantBufferView(0, lightPOVConstantBuffers[currentLight].constantBuffer->GetGPUVirtualAddress());
 }
 
 const void LightHandler::setAsGraphicRoot() const

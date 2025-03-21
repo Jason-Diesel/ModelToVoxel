@@ -42,10 +42,10 @@ VertexOutput main(VertexInput input)
     }
     
     //calculate the rest
-    output.position = mul(float4(input.position.xyz, 1.0), mvp); 
+    output.position.xyz = input.position.xyz + (output.normal * 0.01);
+    output.position = mul(float4(output.position.xyz, 1.0), mvp);
     
     output.localPosition.xyz = input.position - (output.normal * bias);
-    
     
     return output;
 }

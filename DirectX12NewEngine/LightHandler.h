@@ -19,6 +19,7 @@ public:
 	Light* getLight(const uint32_t index);
 	void update();
 	void setLightAsPOV(uint32_t lightIndex);
+	void setCurrentLightAsPOV();//ONLY FOR IN SHADOW MODE
 	const void setAsGraphicRoot() const;
 	const uint16_t getNrOfActiveLights() const;
 	const uint16_t getNrOfActiveShadowMaps() const;
@@ -31,7 +32,9 @@ private:
 
 	uint16_t nrOfLights;
 	uint16_t nrOfShadowMaps;
+	uint16_t currentLight;
 	Light* lights[MAXNROFLIGHTS];
+	
 
 	Graphics* gfx;
 };

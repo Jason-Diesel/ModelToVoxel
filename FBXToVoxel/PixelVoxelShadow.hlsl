@@ -22,17 +22,10 @@ cbuffer MaterialBuffer : register(b2)
 
 //COLORS are stored in one uint32_t but are 3 different uint8_t values
 Texture3D<uint> bindless_Voxels : register(t0, space0);
-Texture2D<float4> bindless_textures[MAXNROFMATERIALS] : register(t1, space0);
-
 
 Texture3D<uint> GetVoxles(uint textureIndex)
 {
     return bindless_Voxels;
-}
-
-Texture2D<float4> GetTextures(uint textureIndex)
-{
-    return bindless_textures[textureIndex];
 }
 
 SamplerState samp : register(s0);

@@ -14,11 +14,10 @@ public:
 	void Render();
 	void RenderUI();
 private:
-	TextureHeap VoxelPosition;
-	static const uint32_t chunkSize = 200;
-
-	Model* theVoxelModel;
-	Model* GetBoxModel(const int size, const int NrOfBlocks);
+	static const uint32_t chunkSize = 256;
+	static const uint32_t nrOfLod = 5;
+	Model* voxelModels[nrOfLod];
+	Model* GetVoxelModel(const int size, const int NrOfBlocks);
 
 	uint32_t voxelShader;
 	Shader* shaderPtrForVoxel;

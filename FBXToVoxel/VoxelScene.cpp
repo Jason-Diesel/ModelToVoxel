@@ -11,7 +11,11 @@ VoxelScene::VoxelScene()
 
 VoxelScene::~VoxelScene()
 {
-    delete theVoxelModel;
+    for (int i = 0; i < nrOfLod; i++)
+    {
+        delete voxelModels[i];
+    }
+    
 
     for (auto& itx : chunks) {
         for (auto& ity : itx.second) {
@@ -27,7 +31,7 @@ void VoxelScene::Start()
     std::vector<MaterialDescription> once = { MaterialDescription(), MaterialDescription() };
 
     shaderPtrForVoxel = new SpecialVoxelShader();
-    ((SpecialVoxelShader*)shaderPtrForVoxel)->initS(
+    ((SpecialVoxelShader*)shaderPtrForVoxel)->init(
         gfx->getDevice(),
         0,
         once,
@@ -35,22 +39,16 @@ void VoxelScene::Start()
         "VoxelVertexShader.cso",
         "VoxelPixelShader.cso"
     );
+    std::vector<MaterialDescription> one = { MaterialDescription() };
     shaderPtrForShadowVoxel = new SpecialVoxelShader();
     ((SpecialVoxelShader*)shaderPtrForShadowVoxel)->initS(
         gfx->getDevice(),
         0,
-        once,
+        one,
         gfx->getInputLayout(2),
         "VoxelVertexShader.cso",
-        "VoxelPixelShader.cso"
+        "PixelVoxelShadow.cso"
     );
-    //voxelShader = shaderHandler->createShader(
-    //    0,
-    //    once,
-    //    gfx->getInputLayout(2),
-    //    "VoxelVertexShader.cso",
-    //    "VoxelPixelShader.cso"
-    //);
 
     Light* testLight = lights->addLight(
         LightType::PointLight_E, DirectX::XMFLOAT3(0, 20, 0)
@@ -58,14 +56,17 @@ void VoxelScene::Start()
     Light* testLight2 = lights->addLight(
         LightType::SpotLight_E, DirectX::XMFLOAT3(0, 20, 0)
     );
-    testLight->setColor(DirectX::XMFLOAT3(1.f, 0.8f, 0.8f));
-    testLight->setShadowSoftNess(3);
+    testLight->setColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f));
+    testLight2->setShadowSoftNess(2);
 
     imguiHandler->addLight(lights->getLight(0));
     imguiHandler->addLight(lights->getLight(1));
 
-	this->VoxelPosition.init(1000, gfx->getDevice());
-    theVoxelModel = GetBoxModel(1, 200);
+    uint32_t size = chunkSize;
+    for (uint32_t i = 0; i < nrOfLod; i++)
+    {
+        voxelModels[i] = GetVoxelModel(1 << i, chunkSize >> i);
+    }
 
     //Model* Sponza = this->fileReader->readModel("../Models/Sponza.obj");
     //uint32_t SponzaObj = objectManager.createAnObject();
@@ -148,35 +149,48 @@ void VoxelScene::Update(const float& dt)
 
 void VoxelScene::Render()
 {
-    const std::vector<Object*> allObjects = objectManager.getAllObjects();
-    for (int i = 0; i < allObjects.size(); i++)
-    {
-        renderer->render(allObjects[i]);
-    }
+    //const std::vector<Object*> allObjects = objectManager.getAllObjects();
+    //for (int i = 0; i < allObjects.size(); i++)
+    //{
+    //    renderer->render(allObjects[i]);
+    //}
     //renderer->render(allObjects[0]);
     //VoxelPosition//SET DESCRIPTOR HEAP
     //shaderHandler->setShader(voxelShader);
-    if (renderer->isMakingShadows())
-    {
-        return;
-    }
+    
+    const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
     shaderHandler->setShader(*(Shader*)shaderPtrForVoxel);
     shaderHandler->setShadowShaders(*(Shader*)shaderPtrForShadowVoxel);
-    const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    
-    const uint32_t nrOfShadowMaps = this->lights->getNrOfActiveShadowMaps();//(For default material);
-    gfx->getCommandList()->SetGraphicsRootDescriptorTable(5, gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
+
+    if (!renderer->isMakingShadows()) {
+        const uint32_t nrOfShadowMaps = this->lights->getNrOfActiveShadowMaps();//(For default material);
+        gfx->getCommandList()->SetGraphicsRootDescriptorTable(5, gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
+    }
+    else {
+        lights->setCurrentLightAsPOV();
+    }
     
     for (auto& itx : chunks) {
         for (auto& ity : itx.second) {
             for (auto& itz : ity.second) {
-    
+                const DirectX::XMFLOAT3 &chunkPos = itz.second->getPosition();
+                const DirectX::XMFLOAT3 middleChunkPosition = DirectX::XMFLOAT3(chunkPos.x + (chunkSize / 2), chunkPos.y + (chunkSize / 2), chunkPos.z + (chunkSize / 2));
+                //float distanceBetweenCameraAndChunkMiddle = HF::distance(this->camera.getPostion(), middleChunkPosition);
+                float distanceBetweenCameraAndChunkMiddle = HF::distance(DirectX::XMFLOAT3(0,0,0), middleChunkPosition);
+
+                //int lod = distanceBetweenCameraAndChunkMiddle / chunkSize;
+                //lod = lod >= nrOfLod ? nrOfLod - 1 : lod;
+                //
+                int lod = 0;
+                itz.second->setLOD(lod);
+
                 CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
-                srvGpuHandle.Offset(itz.second->cbData.bindlessTextureIndex, descriptorSize);
+                srvGpuHandle.Offset(itz.second->cbData.bindlessTextureIndex.x, descriptorSize);
                 gfx->getCommandList()->SetGraphicsRootDescriptorTable(4, srvGpuHandle);
                 
                 itz.second->setConstantBuffers(gfx);//SET many times
-                renderer->render(itz.second);//Set many times
+                renderer->render(itz.second, voxelModels[itz.second->getLod()]);//Set many times
             }
         }
     }
@@ -188,7 +202,7 @@ void VoxelScene::RenderUI()
     {
         if (ImGui::Button("Start"))
         {
-            const uint32_t VoxelSize = 2;
+            const float VoxelSize = 2;
             //load VoxelModel
             DirectX::XMUINT3 sizes;
             Voxel* voxelGrid = nullptr;
@@ -273,10 +287,10 @@ void VoxelScene::RenderUI()
                                                      VoxelSize,
                                                      VoxelSize
                 ));
-                theChunk->addComponent(theVoxelModel);
+                //theChunk->addComponent(voxelModels);
 
                 static uint32_t nrOfChunks = 0;
-                theChunk->cbData.bindlessTextureIndex = gfx->getTextureHeap().createSRV(nrOfChunks + MAXNROFLIGHTS, voxelTextureData, gfx->getDevice());
+                theChunk->cbData.bindlessTextureIndex.x = gfx->getTextureHeap().createSRV(nrOfChunks + MAXNROFLIGHTS, voxelTextureData, gfx->getDevice());
                 nrOfChunks++;
                 theChunk->updateConstantBuffers();
             }
@@ -357,10 +371,10 @@ void VoxelScene::RenderUI()
                 Chunk* theChunk = new Chunk(gfx);
                 chunks[0][0][0] = theChunk;
             
-                theChunk->addComponent(theVoxelModel);
+                //theChunk->addComponent(voxelModels);
                 theChunk->setPosition(DirectX::XMFLOAT3(-200,-200,-200));
             
-                theChunk->cbData.bindlessTextureIndex = gfx->getTextureHeap().createSRV(voxelTextureData, gfx);
+                theChunk->cbData.bindlessTextureIndex.x = gfx->getTextureHeap().createSRV(voxelTextureData, gfx);
                 theChunk->updateConstantBuffers();
             }
             
@@ -375,7 +389,7 @@ void VoxelScene::RenderUI()
     ImGui::End();
 }
 
-Model* VoxelScene::GetBoxModel(const int size, const int NrOfBlocks)
+Model* VoxelScene::GetVoxelModel(const int size, const int NrOfBlocks)
 {
     Model* theReturnModel = new Model();
     

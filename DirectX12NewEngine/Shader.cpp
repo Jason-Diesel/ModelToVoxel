@@ -70,7 +70,12 @@ void Shader::init(ID3D12Device8* device, const uint32_t nrOfConstantBufferViews,
 	createPipelineStateComputeShader(device, computeShader);
 }
 
-void Shader::initShadow(ID3D12Device8* device, const uint32_t nrOfConstantBufferViews, const std::vector<D3D12_INPUT_ELEMENT_DESC>& customInputLayout, const std::string& vertexShader, const std::string& pixelShader)
+void Shader::initShadow(
+	ID3D12Device8* device, 
+	const uint32_t nrOfConstantBufferViews, 
+	const std::vector<D3D12_INPUT_ELEMENT_DESC>& customInputLayout, 
+	const std::string& vertexShader, 
+	const std::string& pixelShader)
 {
 	createRootSignatureShadow(device, nrOfConstantBufferViews);
 	createPipelineState(device, customInputLayout, vertexShader, pixelShader, false);

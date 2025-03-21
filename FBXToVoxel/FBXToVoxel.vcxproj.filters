@@ -79,7 +79,7 @@
     <FxCompile Include="ComputeVoxels.hlsl">
       <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="PixelVertexShadow.hlsl">
+    <FxCompile Include="PixelVoxelShadow.hlsl">
       <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

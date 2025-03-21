@@ -40,6 +40,21 @@ void Renderer::updateShader()
 	gfx->getCommandList()->SetGraphicsRootConstantBufferView(0, viewProjectionBuffer.constantBuffer->GetGPUVirtualAddress());
 }
 
+void Renderer::render(Object* object, Model* customModel)
+{
+	if (customModel == nullptr) { return; }
+
+	object->setConstantBuffer(gfx);
+	if (customModel->ModelType == Model::_AnimatedModel)
+	{
+		AnimationComponent* animatedComponent = object->getComponent<AnimationComponent>();
+		animatedComponent->setPose((AnimatedModel*)customModel);
+		gfx->getCommandList()->SetGraphicsRootConstantBufferView(5, animatedComponent->skeletalConstantBuffer.constantBuffer->GetGPUVirtualAddress());
+	}
+
+	render(customModel);
+}
+
 void Renderer::render(Object* object)
 {
 	Model* model = object->getComponent<Model>();

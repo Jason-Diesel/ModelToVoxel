@@ -19,7 +19,7 @@ public:
 	void setReady();//Do this everytime 
 	void updateShader();//Do this once every frame //hopefully
 
-
+	void render(Object* object, Model* customModel);
 	void render(Object* object);
 	void render(Model* model);
 	void render(Mesh& mesh);

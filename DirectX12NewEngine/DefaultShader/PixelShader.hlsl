@@ -116,7 +116,7 @@ float shadowLevel(float bias, int lightIndex, float3 shadowMapChoords)
     //        }
     //    }
     //}
-   //return (shadowReturn / (4.0 * shadowSoftness * shadowSoftness));
+    //return (shadowReturn / (4.0 * shadowSoftness * shadowSoftness));
 }
 
 float4 main(PixelShaderInput input) : SV_TARGET
