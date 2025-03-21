@@ -33,4 +33,5 @@ private:
 	uint32_t nrOfCurrentTextures;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> srvHeap;
 	std::unordered_map<TextureViewClass*, uint32_t> texturePointer;
+	TextureViewClass* UAVThatDoesntExist;
 };

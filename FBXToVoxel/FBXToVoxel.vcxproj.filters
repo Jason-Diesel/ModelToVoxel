@@ -82,5 +82,8 @@
     <FxCompile Include="PixelVoxelShadow.hlsl">
       <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="ComputeVoxelMinimizer.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

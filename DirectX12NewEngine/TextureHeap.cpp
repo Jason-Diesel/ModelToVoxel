@@ -5,6 +5,7 @@
 TextureHeap::TextureHeap():
 	nrOfCurrentTextures(0)
 {	
+	UAVThatDoesntExist = new TextureViewClass();
 }
 
 TextureHeap::~TextureHeap()
@@ -127,10 +128,6 @@ uint32_t TextureHeap::createUAV(TextureViewClass* texture, Graphics* gfx)
 	{
 		return texturePointer[texture];
 	}
-	//if (this->nrOfCurrentTextures < MAXNROFSRV)
-	//{
-	//	return this->createUAV(nrOfCurrentTextures, texture, gfx->getDevice());
-	//}
 
 	for (int i = 0; i < MAXNROFSRV; i++)
 	{
@@ -227,7 +224,7 @@ uint32_t TextureHeap::addReadBackBuffer(ReadBackBuffer* rbBuffer, Graphics* gfx)
 			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), 0, gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
 			gfx->getDevice()->CreateUnorderedAccessView(rbBuffer->getResource(), nullptr, &uavDesc, srvHandle);
 
-			TextureViewptrs[i] = nullptr;//how should I do here?
+			TextureViewptrs[i] = UAVThatDoesntExist;//how should I do here?
 			nrOfCurrentTextures++;
 			return i;
 		}
