@@ -136,8 +136,9 @@ uint32_t TextureHeap::createUAV(TextureViewClass* texture, Graphics* gfx)
 			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 			uavDesc.Format = texture->srvResource->GetDesc().Format;
 			uavDesc.ViewDimension = texture->UAVType;
+			uavDesc.Texture3D.WSize = -1;
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), 0, gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
+			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), i, gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
 			gfx->getDevice()->CreateUnorderedAccessView(texture->srvResource.Get(), nullptr, &uavDesc, srvHandle);
 
 			TextureViewptrs[i] = texture;
@@ -169,7 +170,7 @@ uint32_t TextureHeap::createUAV(ID3D12Resource* resource, ID3D12Device8* device)
 			uavDesc.Buffer.CounterOffsetInBytes = 0;
 			uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), 0, device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
+			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), i, device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
 			device->CreateUnorderedAccessView(resource, nullptr, &uavDesc, srvHandle);
 
 			TextureViewptrs[i] = nullptr;//how should I do here?
@@ -195,7 +196,7 @@ uint32_t TextureHeap::createNormalResource(ID3D12Resource* resource, ID3D12Devic
 			uavDesc.Buffer.CounterOffsetInBytes = 0;
 			uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), 0, device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
+			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), i, device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
 			device->CreateUnorderedAccessView(resource, nullptr, &uavDesc, srvHandle);
 
 			TextureViewptrs[i] = nullptr;//how should I do here?

@@ -307,7 +307,7 @@ TextureViewClass* createUAV(
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		format,
-		false,
+		size.z > 1 ? true : false,
 		nrOfMips
 	);
 	return returnData;

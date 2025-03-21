@@ -2,6 +2,7 @@
 //#include "VoxelShaderClass.h"
 #include "SpecialVoxelShader.h"
 #include "ModelToVoxel.h"
+#include "TextureChanges.h"
 
 
 VoxelScene::VoxelScene()
@@ -180,9 +181,9 @@ void VoxelScene::Render()
                 //float distanceBetweenCameraAndChunkMiddle = HF::distance(this->camera.getPostion(), middleChunkPosition);
                 float distanceBetweenCameraAndChunkMiddle = HF::distance(DirectX::XMFLOAT3(0,0,0), middleChunkPosition);
 
-                int lod = distanceBetweenCameraAndChunkMiddle / chunkSize;
-                lod = lod >= NROFLOD ? NROFLOD - 1 : lod;
-                
+                //int lod = distanceBetweenCameraAndChunkMiddle / chunkSize;
+                //lod = lod >= NROFLOD ? NROFLOD - 1 : lod;
+                int lod = NROFLOD - 1;
                 itz.second->setLOD(lod);
 
                 CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
@@ -274,8 +275,7 @@ void VoxelScene::RenderUI()
                     DirectX::XMINT3(chunkSize, chunkSize, chunkSize),
                     rm,
                     gfx,
-                    DXGI_FORMAT_R32_UINT,
-                    1
+                    DXGI_FORMAT_R32_UINT
                 );
                 
                 int chunkX = i % nrOfChunksInDirection.x;
@@ -300,7 +300,7 @@ void VoxelScene::RenderUI()
                     DirectX::XMINT3 lodTextureSize(chunkSize / (i * 2), chunkSize / (i * 2), chunkSize / (i * 2));
                     TextureViewClass* uavPtr = createEmptyUAV(sizeof(uint32_t), lodTextureSize, gfx, DXGI_FORMAT_R32_UINT);
 
-                    theChunk->setTexturePointerForLod(gfx->getTextureHeap().createUAV(uavPtr, gfx), 0);
+                    theChunk->setTexturePointerForLod(gfx->getTextureHeap().createUAV(uavPtr, gfx), i);
 
                     //Make a dispatch
                     CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
@@ -312,15 +312,17 @@ void VoxelScene::RenderUI()
                     gfx->getCommandList()->SetComputeRootDescriptorTable(1, srvGpuHandle2);
 
                     gfx->getCommandList()->Dispatch(
-                        1, 
-                        1, 
-                        1
+                        (chunkSize >> i) / 8, 
+                        (chunkSize >> i) / 8,  
+                        (chunkSize >> i) / 8
                     );
                 }
-                
 
                 theChunk->updateConstantBuffers();
             }
+
+
+
             for (int i = 0; i < nrOfChunks; i++)
             {
                 delete convertedData[i];

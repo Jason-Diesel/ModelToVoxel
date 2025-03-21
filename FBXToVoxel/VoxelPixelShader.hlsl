@@ -30,11 +30,11 @@ cbuffer LightData : register(b3)
 };
 
 //COLORS are stored in one uint32_t but are 3 different uint8_t values
-Texture3D<uint> bindless_Voxels : register(t0, space0);
+RWTexture3D<uint> bindless_Voxels : register(u0, space0);
 Texture2D<float4> bindless_textures[MAXNROFMATERIALS] : register(t1, space0);
 
 
-Texture3D<uint> GetVoxles(uint textureIndex)
+RWTexture3D<uint> GetVoxles(uint textureIndex)
 {
     return bindless_Voxels;
 }

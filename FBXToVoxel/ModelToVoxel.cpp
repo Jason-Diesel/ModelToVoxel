@@ -50,7 +50,7 @@ void ModelToVoxel::Start()
 {
     objectManager.createAnObject();
     std::vector<MaterialDescription> empty;
-    empty.push_back(MaterialDescription());
+    empty.push_back(MaterialDescription({1}));
     debugShader = shaderHandler->createShader(
         0,
         empty,
