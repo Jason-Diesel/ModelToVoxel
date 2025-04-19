@@ -77,11 +77,18 @@ private:
 
 	//GPU SHIT
 	uint32_t computeVoxelsShader;
-	ReadBackBuffer* rbBuffer;
 	TextureHeap rbBufferHeap;
-	std::vector<GraphicsBufferWithData> computeVoxelData;
+	ReadBackBuffer* rbBuffer;//only the VoxelData here
+	
+	ConstantBuffer creatingVoxelModelData;
+
+	Voxel* CreateVoxelModelGPU();
 	void LoadModelForGPU(VoxelModel& theReturn, ResourceManager* rm);
 	bool doneShit = false;
 
-	
+	struct {
+		DirectX::XMUINT4 sizes;
+		DirectX::XMFLOAT4 minSizes;
+		DirectX::XMFLOAT4 voxelSize;
+	}creatingVoxelModelDataData;
 };

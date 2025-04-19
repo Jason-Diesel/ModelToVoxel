@@ -9,7 +9,8 @@
 TextureViewClass* createTexture(
 	const std::string& filePath, 
 	ResourceManager* rm,
-	Graphics* gfx
+	Graphics* gfx,
+	uint32_t commandThread = 0
 );
 
 TextureViewClass* createTextureWithWriteAccess(

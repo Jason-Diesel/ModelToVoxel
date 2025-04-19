@@ -11,7 +11,12 @@ enum MaterialType{
 
 struct MaterialDescription
 {
+	MaterialDescription(const int nrOfTextures = 1, const D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV) {
+		this->NrOfTextures = nrOfTextures;
+		this->RangeType = rangeType;
+	}
 	int NrOfTextures;
+	D3D12_DESCRIPTOR_RANGE_TYPE RangeType;
 };
 
 #define DS(x) &x, sizeof(x)

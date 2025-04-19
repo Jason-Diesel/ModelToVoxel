@@ -20,7 +20,7 @@ void SpecialVoxelShader::createRootSignatureS(
 		);
 	}
 	descriptorRanges[index].Init(
-		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
 		1,
 		0,
 		0
@@ -101,8 +101,7 @@ void SpecialVoxelShader::createRootSignatureShadow(
 	}
 
 	descriptorRanges[index].Init(
-		//D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
 		1,
 		0,
 		0

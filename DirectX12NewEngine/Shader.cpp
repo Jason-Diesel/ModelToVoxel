@@ -238,13 +238,15 @@ void Shader::createRootSignatureComputeShader(ID3D12Device8* device, const uint3
 		);
 	}
 
-	//BindLess TextureHeap
+	//Texture
+	int UAVIndex = 0;
+	int SRVIndex = 0;
 	for (int i = 0; i < materialDescription.size(); i++)
 	{
 		descriptorRanges[index].Init(
-			D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+			materialDescription[i].RangeType,
 			materialDescription[i].NrOfTextures,
-			i
+			materialDescription[i].RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SRV ? SRVIndex++ : UAVIndex++
 		);
 		rootParameters[descriptorIndex++].InitAsDescriptorTable(1, &descriptorRanges[index++], D3D12_SHADER_VISIBILITY_ALL);
 	}

@@ -12,7 +12,7 @@ void ShaderHandler::init()
 {
 	//create a default shader
 	std::vector<MaterialDescription> aMaterial;
-	aMaterial.push_back(MaterialDescription({ 1 }));
+	aMaterial.push_back(MaterialDescription(1));
 	this->createNoLightShader(0, gfx->getInputLayout(0), "VertexShadow.cso", "PixelShadow.cso");
 	this->createShader(0, aMaterial, gfx->getInputLayout(0), "VertexShader.cso", "PixelShader.cso");
 }

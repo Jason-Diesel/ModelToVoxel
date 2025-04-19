@@ -8,7 +8,8 @@ void readImage(
 	ResourceManager* rm,
 	Graphics* gfx,
 	D3D12_RESOURCE_FLAGS resourceFlags,
-	D3D12_RESOURCE_STATES resourceState
+	D3D12_RESOURCE_STATES resourceState,
+	uint32_t commandThread
 ) 
 {
 	DirectX::ScratchImage image;
@@ -87,11 +88,11 @@ void readImage(
 		))
 	}
 
-	CheckHR(gfx->getCommandAllocator()->Reset())
-	CheckHR(gfx->getCommandList()->Reset(gfx->getCommandAllocator(), nullptr))
+	CheckHR(gfx->getCommandAllocator(commandThread)->Reset())
+	CheckHR(gfx->getCommandList(commandThread)->Reset(gfx->getCommandAllocator(commandThread), nullptr))
 
 	UpdateSubresources(
-		gfx->getCommandList(),
+		gfx->getCommandList(commandThread),
 		theReturn->srvResource.Get(),
 		uploadBuffer.Get(),
 		0, 0,
@@ -104,11 +105,11 @@ void readImage(
 			theReturn->srvResource.Get(),
 			D3D12_RESOURCE_STATE_COPY_DEST, resourceState
 		);
-		gfx->getCommandList()->ResourceBarrier(1, &Barrier);
+		gfx->getCommandList(commandThread)->ResourceBarrier(1, &Barrier);
 	}
 	{
-		CheckHR(gfx->getCommandList()->Close())
-		ID3D12CommandList* const commandLists[] = { gfx->getCommandList() };
+		CheckHR(gfx->getCommandList(commandThread)->Close())
+		ID3D12CommandList* const commandLists[] = { gfx->getCommandList(commandThread) };
 		gfx->getCommandQueue()->ExecuteCommandLists(_countof(commandLists), commandLists);
 	}
 	CheckHR(gfx->getCommandQueue()->Signal(gfx->getFence(), ++gfx->getFenceValue()))
@@ -218,7 +219,8 @@ void CreateImage(
 TextureViewClass* createTexture(
 	const std::string& filePath, 
 	ResourceManager* rm,
-	Graphics* gfx
+	Graphics* gfx,
+	uint32_t commandThread
 )
 {
 	struct stat buffer;
@@ -238,7 +240,7 @@ TextureViewClass* createTexture(
 	theReturn = new TextureViewClass();
 
 	//readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+	readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, commandThread);
 
 	return theReturn;
 }
@@ -261,7 +263,7 @@ TextureViewClass* createTextureWithWriteAccess(const std::string& filePath, Reso
 	}
 
 	theReturn = new TextureViewClass();
-	readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, 0);
 
 	return theReturn;
 }

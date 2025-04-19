@@ -4,6 +4,11 @@ GraphicsBufferWithData::GraphicsBufferWithData()
 {
 }
 
+void GraphicsBufferWithData::reset()
+{
+    this->resource->Release();
+}
+
 void GraphicsBufferWithData::init(
 	void* data, 
 	const uint32_t sizeOfData,

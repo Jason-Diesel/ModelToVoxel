@@ -20,9 +20,24 @@ public:
 
 	uint32_t createUAV(TextureViewClass* texture, Graphics* gfx);
 	uint32_t createUAV(const uint32_t pos, TextureViewClass* texture, ID3D12Device8* device);
-	uint32_t createUAV(ID3D12Resource* resource, ID3D12Device8* device);
+	uint32_t createUAV(
+		ID3D12Resource* resource, 
+		ID3D12Device8* device,
+		const uint32_t nrOfElements,
+		const uint32_t sizeOfElement
+	);
 
-	uint32_t createNormalResource(ID3D12Resource* resource, ID3D12Device8* device);
+	uint32_t createNormalResource(
+		ID3D12Resource* resource, 
+		ID3D12Device8* device,
+		const uint32_t sizeofType = sizeof(uint32_t),
+		const uint32_t nummerOfelements = 1
+	);
+
+	//Doesn't delete the resource
+	bool removeFromHeap(const uint32_t pos);
+	//Deletes the resource
+	bool deleteFromHeap(const uint32_t pos);
 
 	uint32_t addReadBackBuffer(ReadBackBuffer* rbBuffer, Graphics* gfx);
 

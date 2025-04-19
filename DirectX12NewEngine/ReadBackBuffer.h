@@ -4,12 +4,20 @@
 
 class ReadBackBuffer{
 public:
+	ReadBackBuffer();
 	ReadBackBuffer(
 		void* data,
 		const uint32_t sizeOfData,
 		Graphics* gfx
 	);
 	~ReadBackBuffer();
+
+	void init(
+		void* data,
+		const uint32_t sizeOfData,
+		Graphics* gfx
+	);
+
 	template<typename T>
 	T* getData(Graphics* gfx) {
 		CheckHR(gfx->getCommandAllocator(1)->Reset())
@@ -43,8 +51,9 @@ public:
 	}
 	ID3D12Resource* getResource();
 	ID3D12Resource* getUAVResource();
+	uint32_t positionInHeap;
 private:
 	ID3D12Resource* readbackBuffer;
 	ID3D12Resource* gpuBuffer;
-	const uint32_t sizeOfData;
+	uint32_t sizeOfData;
 };

@@ -46,7 +46,7 @@ DirectX::XMFLOAT3 HF::add(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b
 	return DirectX::XMFLOAT3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-float HF::squareDistance(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+float HF::magDistance(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
 {
 	const float dx = a.x - b.x;
 	const float dy = a.y - b.y;

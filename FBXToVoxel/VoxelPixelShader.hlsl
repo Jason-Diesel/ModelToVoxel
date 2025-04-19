@@ -30,14 +30,8 @@ cbuffer LightData : register(b3)
 };
 
 //COLORS are stored in one uint32_t but are 3 different uint8_t values
-RWTexture3D<uint> bindless_Voxels : register(u0, space0);
+Texture3D<uint> bindless_Voxels : register(t0, space0);
 Texture2D<float4> bindless_textures[MAXNROFMATERIALS] : register(t1, space0);
-
-
-RWTexture3D<uint> GetVoxles(uint textureIndex)
-{
-    return bindless_Voxels;
-}
 
 Texture2D<float4> GetTextures(uint textureIndex)
 {
@@ -94,13 +88,13 @@ float4 main(PixelShaderInput input) : SV_TARGET
     }
     
     int4 location = int4(input.localPosition.xyz, 0);
-    if (location.x > 256 || location.y > 256 || location.z > 256 ||
-        location.x < 0 || location.y < 0 || location.z < 0)
-    {
-        discard;
-    }
+    //if (location.x > 128 || location.y > 128 || location.z > 128 ||
+    //    location.x < 0 || location.y < 0 || location.z < 0)
+    //{
+    //    discard;
+    //}
     
-    uint voxelColor = GetVoxles(materialIndex.x).Load(location);
+    uint voxelColor = bindless_Voxels.Load(location);
     
     if (voxelColor == 0)
     {

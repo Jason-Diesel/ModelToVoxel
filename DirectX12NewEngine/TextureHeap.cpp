@@ -155,7 +155,12 @@ uint32_t TextureHeap::createUAV(const uint32_t pos, TextureViewClass* texture, I
 	return 0;
 }
 
-uint32_t TextureHeap::createUAV(ID3D12Resource* resource, ID3D12Device8* device)
+uint32_t TextureHeap::createUAV(
+	ID3D12Resource* resource, 
+	ID3D12Device8* device, 
+	const uint32_t nrOfElements,
+	const uint32_t sizeOfElement
+)
 {
 	for (int i = 0; i < MAXNROFSRV; i++)
 	{
@@ -165,15 +170,17 @@ uint32_t TextureHeap::createUAV(ID3D12Resource* resource, ID3D12Device8* device)
 			uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 			uavDesc.Buffer.FirstElement = 0;
-			uavDesc.Buffer.NumElements = 1;
-			uavDesc.Buffer.StructureByteStride = sizeof(uint32_t);
+			uavDesc.Buffer.NumElements = nrOfElements;
+			uavDesc.Buffer.StructureByteStride = sizeOfElement;
 			uavDesc.Buffer.CounterOffsetInBytes = 0;
 			uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), i, device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
 			device->CreateUnorderedAccessView(resource, nullptr, &uavDesc, srvHandle);
 
-			TextureViewptrs[i] = nullptr;//how should I do here?
+			TextureViewptrs[i] = UAVThatDoesntExist;//how should I do here?
+			//TextureViewptrs[i]->srvResource = resource;
+			//TextureViewptrs[i]->srvHandle = srvHandle;
 			nrOfCurrentTextures++;
 			return i;
 		}
@@ -181,7 +188,7 @@ uint32_t TextureHeap::createUAV(ID3D12Resource* resource, ID3D12Device8* device)
 	return -1;
 }
 
-uint32_t TextureHeap::createNormalResource(ID3D12Resource* resource, ID3D12Device8* device)
+uint32_t TextureHeap::createNormalResource(ID3D12Resource* resource, ID3D12Device8* device, const uint32_t sizeofType, const uint32_t nummerOfelements)
 {
 	for (int i = 0; i < MAXNROFSRV; i++)
 	{
@@ -191,15 +198,15 @@ uint32_t TextureHeap::createNormalResource(ID3D12Resource* resource, ID3D12Devic
 			uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 			uavDesc.Buffer.FirstElement = 0;
-			uavDesc.Buffer.NumElements = 1;
-			uavDesc.Buffer.StructureByteStride = sizeof(uint32_t);
+			uavDesc.Buffer.NumElements = nummerOfelements;
+			uavDesc.Buffer.StructureByteStride = sizeofType;
 			uavDesc.Buffer.CounterOffsetInBytes = 0;
 			uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), i, device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
 			device->CreateUnorderedAccessView(resource, nullptr, &uavDesc, srvHandle);
 
-			TextureViewptrs[i] = nullptr;//how should I do here?
+			TextureViewptrs[i] = UAVThatDoesntExist;//how should I do here?
 			nrOfCurrentTextures++;
 			return i;
 		}
@@ -231,6 +238,40 @@ uint32_t TextureHeap::addReadBackBuffer(ReadBackBuffer* rbBuffer, Graphics* gfx)
 		}
 	}
 	return -1;
+}
+
+bool TextureHeap::removeFromHeap(const uint32_t pos)
+{
+	if (TextureViewptrs[pos] == UAVThatDoesntExist)
+	{
+		TextureViewptrs[pos] = nullptr;
+		return true;
+	}
+	if (TextureViewptrs[pos] != nullptr)
+	{
+		texturePointer.erase(TextureViewptrs[pos]);
+		TextureViewptrs[pos] = nullptr;
+		return true;
+	}
+	return false;
+}
+
+bool TextureHeap::deleteFromHeap(const uint32_t pos)
+{
+	if (TextureViewptrs[pos] == UAVThatDoesntExist)
+	{
+		TextureViewptrs[pos] = nullptr;
+		return true;
+	}
+	if (TextureViewptrs[pos] != nullptr)
+	{
+		texturePointer.erase(TextureViewptrs[pos]);
+		TextureViewptrs[pos]->srvResource.Reset();
+		delete TextureViewptrs[pos];
+		TextureViewptrs[pos] = nullptr;
+		return true;
+	}
+	return false;
 }
 
 ID3D12DescriptorHeap* TextureHeap::getHeap()

@@ -49,26 +49,24 @@ ModelToVoxel::~ModelToVoxel()
 void ModelToVoxel::Start()
 {
     objectManager.createAnObject();
-    std::vector<MaterialDescription> empty;
-    empty.push_back(MaterialDescription({1}));
-    debugShader = shaderHandler->createShader(
-        0,
-        empty,
-        gfx->getInputLayout(0),
-        "VertexShader.cso",
-        "DebugPixel.cso",
-        true
-    );
 
-    uint32_t data = 5;
-    rbBuffer = new ReadBackBuffer(
-        &data, 
-        sizeof(uint32_t),
-        gfx
-    );
-    computeVoxelsShader = shaderHandler->createShader(0, empty, "ComputeVoxels.cso");
-    rbBufferHeap.init(1, gfx->getDevice());
-    rbBufferHeap.createUAV(rbBuffer->getUAVResource(), gfx->getDevice());
+
+    //uint32_t data = 5;
+    //rbBuffer = new ReadBackBuffer(
+    //    &data, 
+    //    sizeof(uint32_t),
+    //    gfx
+    //);
+    std::vector<MaterialDescription> ForComputeVoxels;
+    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
+    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
+    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
+    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV));
+
+    computeVoxelsShader = shaderHandler->createShader(1, ForComputeVoxels, "ComputeVoxels.cso");
+    rbBufferHeap.init(50, gfx->getDevice());
+    
+    //rbBufferHeap.createUAV(rbBuffer->getUAVResource(), gfx->getDevice());
 
     //getBox();
 }
@@ -117,17 +115,10 @@ void ModelToVoxel::Update(const float& dt)
 
 void ModelToVoxel::Render()
 {
-    if (doneShit)
-    {
-        uint32_t* data = this->rbBuffer->getData<uint32_t>(gfx);
-    }
-    
-
-    if (StartModel != nullptr)
-    {
-        shaderHandler->setShader(debugShader);
-        renderer->render(objectManager.getObject(0));
-    }
+    //if (doneShit)
+    //{
+    //    uint32_t* data = this->rbBuffer->getData<uint32_t>(gfx);
+    //}
 }
 
 void OpenFileDialog(std::string& fileName) {
@@ -151,6 +142,40 @@ void OpenFileDialog(std::string& fileName) {
 
 void ModelToVoxel::RenderUI()
 {
+    static bool nextGo = false;
+    if (nextGo)
+    {
+        information = "";
+        nextGo = false;
+        Voxel* voxels = CreateVoxelModelGPU();
+        bool isnull = true;
+        for (uint32_t i = 0; i < sizes.x * sizes.y * sizes.z && isnull; i++)
+        {
+            if (voxels[i].rgb[0] + voxels[i].rgb[1] + voxels[i].rgb[2] != 0)
+            {
+                isnull = false;
+            }
+        }
+
+        if (isnull)
+        {
+            delete[] voxels;
+            return;
+        }
+
+        if (voxels == nullptr)
+        {
+            return;
+        }
+        WriteVoxelToFile(
+            sizes,
+            voxels,
+            "VoxelTest.vox"
+        );
+        delete[] voxels;
+        information += "\nSucessfully created VoxelModel";
+    }
+
     if (ImGui::Begin("Voxel"))
     {
 
@@ -161,74 +186,26 @@ void ModelToVoxel::RenderUI()
         }
         if (ImGui::Button("Start Creating VoxelModel GPU"))
         {
-            VoxelModel model;
-            LoadModelForGPU(model, rm);
-            struct {
-                uint32_t nrOfIndecies;
-                DirectX::XMFLOAT3 boundingBoxes[2];
-                uint32_t materialIndex;
-                float voxelSize;
-            }IBMI;
-
-            shaderHandler->setComputeShader(this->computeVoxelsShader);
-            ID3D12DescriptorHeap* heaps[] = { rbBufferHeap.getHeap() };
-            gfx->getCommandList()->SetDescriptorHeaps(_countof(heaps), heaps);
-
-            for (int m = 0; m < model.meshes.size(); m++)
-            {
-                
-                if (model.texturesGPU[model.meshes[m].materialIndex] != nullptr)
-                {
-                    IBMI.materialIndex = model.meshes[m].materialIndex;
-                    IBMI.boundingBoxes[0] = boundingBox[0];
-                    IBMI.boundingBoxes[1] = boundingBox[1];
-                    IBMI.nrOfIndecies = model.meshes[m].indecies.size();
-                    IBMI.voxelSize = (boundingBox[1].x - boundingBox[0].x) / sizes.x;
-                    IBMI.voxelSize = max(IBMI.voxelSize, (boundingBox[1].y - boundingBox[0].y) / sizes.y);
-                    IBMI.voxelSize = max(IBMI.voxelSize, (boundingBox[1].z - boundingBox[0].z) / sizes.z);
-                    IBMI.voxelSize += 0.0000001f;//BIAS IS NEEDED
-
-                    computeVoxelData.push_back(GraphicsBufferWithData());
-                    computeVoxelData.back().init(
-                        &IBMI,
-                        sizeof(IBMI),
-                        gfx
-                    );
-                    computeVoxelData.push_back(GraphicsBufferWithData());
-                    computeVoxelData.back().init(
-                        model.meshes[m].vertecies.data(),
-                        sizeof(Vertecies) * model.meshes[m].vertecies.size(),
-                        gfx
-                        );
-                    computeVoxelData.push_back(GraphicsBufferWithData());
-                    computeVoxelData.back().init(
-                        model.meshes[m].vertecies.data(),
-                        sizeof(uint32_t)* model.meshes[m].vertecies.size(),
-                        gfx
-                    );
-
-
-                    gfx->getCommandList()->SetComputeRootDescriptorTable(0, rbBufferHeap.getHeap()->GetGPUDescriptorHandleForHeapStart());
-                    
-                    gfx->getCommandList()->Dispatch(1, 1, 1);
-                    doneShit = true;
-                }
-            }
+            nextGo = true;
         }
         if (ImGui::Button("Start Creating VoxelModel CPU"))
         {   
-            Voxel* voxels = this->CreateVoxelModelCPU();
-            if (voxels == nullptr)
+            information = "";
             {
-                return;
+                Voxel* voxels = this->CreateVoxelModelCPU();
+                if (voxels == nullptr)
+                {
+                    return;
+                }
+                WriteVoxelToFile(
+                    sizes,
+                    voxels,
+                    "VoxelTest.vox"
+                );
+                delete[] voxels;
+                information += "\nSucessfully created VoxelModel";
             }
-            WriteVoxelToFile(
-                sizes,
-                voxels,
-                "VoxelTest.vox"
-            );
-            delete[] voxels;
-            information = "Sucessfully created VoxelModel";
+            information += "\nSucessfully created VoxelModel";
         }
         if (ImGui::Button("Go To VoxelScene"))
         {
@@ -247,7 +224,179 @@ void ModelToVoxel::RenderUI()
             ImGui::Text(information.c_str());
         }
     }
+
+    
+
     ImGui::End();
+}
+
+Voxel* ModelToVoxel::CreateVoxelModelGPU()
+{
+    VoxelModel model;
+
+    
+    LoadModelForGPU(model, rm);
+
+    auto _TimeStart = std::chrono::steady_clock::now();
+
+    if (model.meshes.size() == 0)
+    {
+        return nullptr;
+    }
+
+    {
+        float xSize = boundingBox[1].x - boundingBox[0].x;
+        float ySize = boundingBox[1].y - boundingBox[0].y;
+        float zSize = boundingBox[1].z - boundingBox[0].z;
+
+        float scaleFactor = min(min(sizes.x / xSize, sizes.y / ySize), sizes.z / zSize);
+        sizes.x = std::floor((scaleFactor + 0.00001) * xSize);
+        sizes.y = std::floor((scaleFactor + 0.00001) * ySize);
+        sizes.z = std::floor((scaleFactor + 0.00001) * zSize);
+    }
+
+    VoxelGPU* voxelGrid = new VoxelGPU[sizes.x * sizes.y * sizes.z];
+
+    float voxelSize = (boundingBox[1].x - boundingBox[0].x) / (sizes.x - 1);
+    voxelSize = max(voxelSize, (boundingBox[1].y - boundingBox[0].y) / (sizes.y - 1));
+    voxelSize = max(voxelSize, (boundingBox[1].z - boundingBox[0].z) / (sizes.z - 1));
+    voxelSize += 0.0000001f;//BIAS IS NEEDED
+    const DirectX::XMFLOAT3 minSizes = boundingBox[0];
+
+    creatingVoxelModelDataData.sizes = DirectX::XMUINT4(sizes.x, sizes.y, sizes.z, 0);
+    creatingVoxelModelDataData.minSizes = DirectX::XMFLOAT4(minSizes.x, minSizes.y, minSizes.z, 0);
+    creatingVoxelModelDataData.voxelSize.x = voxelSize;
+
+    creatingVoxelModelData = CreateConstantBuffer(gfx, creatingVoxelModelDataData);
+
+    //ADD VOXELS HERE
+    rbBuffer = new ReadBackBuffer(
+        voxelGrid,
+        sizeof(VoxelGPU) * sizes.x * sizes.y * sizes.z,
+        gfx
+    );
+    rbBuffer->positionInHeap = rbBufferHeap.createUAV(
+        rbBuffer->getUAVResource(), gfx->getDevice(), sizes.x * sizes.y * sizes.z, sizeof(VoxelGPU)
+    );
+    for (int m = 0; m < model.meshes.size(); m++)
+    {
+        if (model.texturesGPU[model.meshes[m].materialIndex] != nullptr)
+        {
+            creatingVoxelModelDataData.sizes.w = model.meshes[m].indecies.size();
+            updateConstantBuffer(creatingVoxelModelDataData, creatingVoxelModelData);
+
+            shaderHandler->setComputeShader(this->computeVoxelsShader);
+            ID3D12DescriptorHeap* heaps[] = { rbBufferHeap.getHeap() };
+            gfx->getCommandList(0)->SetDescriptorHeaps(_countof(heaps), heaps);
+
+            GraphicsBufferWithData computeVoxelData[2];
+            computeVoxelData[0].init(
+                model.meshes[m].vertecies.data(),
+                sizeof(Vertecies)* model.meshes[m].vertecies.size(),
+                gfx
+            );
+            computeVoxelData[0].posInHeap = rbBufferHeap.createNormalResource(
+                computeVoxelData[0].resource,
+                gfx->getDevice(),
+                sizeof(Vertecies),
+                model.meshes[m].vertecies.size()
+            );
+
+            computeVoxelData[1].init(
+                model.meshes[m].indecies.data(),
+                sizeof(uint32_t)* model.meshes[m].indecies.size(),
+                gfx
+            );
+            computeVoxelData[1].posInHeap = rbBufferHeap.createNormalResource(
+                computeVoxelData[1].resource,
+                gfx->getDevice(),
+                sizeof(uint32_t),
+                model.meshes[m].indecies.size()
+            );
+            uint32_t textureIndex = rbBufferHeap.createSRV(model.texturesGPU[model.meshes[m].materialIndex], gfx);
+
+            //updateConstantBuffer(creatingVoxelModelDataData, creatingVoxelModelData);
+
+            //SET Data for voxels
+            gfx->getCommandList(0)->SetComputeRootConstantBufferView(0, creatingVoxelModelData.constantBuffer->GetGPUVirtualAddress());
+
+            const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(rbBufferHeap.getHeap()->GetGPUDescriptorHandleForHeapStart());
+            CD3DX12_GPU_DESCRIPTOR_HANDLE ChangeingHandle = srvGpuHandle;
+
+            //Voxels
+            ChangeingHandle.Offset(rbBuffer->positionInHeap, descriptorSize);
+            gfx->getCommandList(0)->SetComputeRootDescriptorTable(1, ChangeingHandle);
+            ChangeingHandle = srvGpuHandle;
+            //Vertecies
+            ChangeingHandle.Offset(computeVoxelData[0].posInHeap, descriptorSize);
+            gfx->getCommandList(0)->SetComputeRootDescriptorTable(2, ChangeingHandle);
+            ChangeingHandle = srvGpuHandle;
+            //Indecies
+            ChangeingHandle.Offset(computeVoxelData[1].posInHeap, descriptorSize);
+            gfx->getCommandList(0)->SetComputeRootDescriptorTable(3, ChangeingHandle);
+            ChangeingHandle = srvGpuHandle;
+            //Texture
+            ChangeingHandle.Offset(textureIndex, descriptorSize);
+            gfx->getCommandList(0)->SetComputeRootDescriptorTable(4, ChangeingHandle);
+
+            //THIS RIGHT NOW MAKES IT ONE THREAD BUT JUST TO TEST
+            const uint32_t triangleCount = model.meshes[m].indecies.size() / 3;
+            const uint32_t threadGroupSize = 128;
+            const uint32_t dispatchX = (triangleCount + threadGroupSize - 1) / threadGroupSize;
+            gfx->getCommandList(0)->Dispatch(
+                dispatchX,
+                1, 
+                1
+            );
+
+            {
+                CheckHR(gfx->getCommandList(0)->Close())
+                ID3D12CommandList* const commandLists[] = { gfx->getCommandList(0) };
+                gfx->getCommandQueue()->ExecuteCommandLists(_countof(commandLists), commandLists);
+            }
+            CheckHR(gfx->getCommandQueue()->Signal(gfx->getFence(), ++gfx->getFenceValue()))
+            CheckHR(gfx->getFence()->SetEventOnCompletion(gfx->getFenceValue(), gfx->getFenceEvent()))
+            if (::WaitForSingleObject(gfx->getFenceEvent(), 20000) == WAIT_FAILED)
+            {
+                breakDebug;
+            }
+            CheckHR(gfx->getCommandAllocator(0)->Reset())
+            CheckHR(gfx->getCommandList(0)->Reset(gfx->getCommandAllocator(0), nullptr))
+
+            //DELETE AND DO EVERYTHING AGAIN
+            rbBufferHeap.removeFromHeap(computeVoxelData[0].posInHeap);
+            rbBufferHeap.removeFromHeap(computeVoxelData[1].posInHeap);
+            rbBufferHeap.removeFromHeap(textureIndex);
+
+            computeVoxelData[0].reset();
+            computeVoxelData[1].reset();
+
+            doneShit = true;
+        }
+    }
+    voxelGrid = rbBuffer->getData<VoxelGPU>(gfx);
+    //Make the VoxelGPU(This uses uint32_t) to Voxel(This uses uint16_t)
+
+    Voxel* returnVoxelGrid = new Voxel[sizes.x * sizes.y * sizes.z];
+
+    for (uint32_t i = 0; i < sizes.x * sizes.y * sizes.z; i++)
+    {
+        returnVoxelGrid[i].rgb[0] = voxelGrid[i].rgb[2];
+        returnVoxelGrid[i].rgb[1] = voxelGrid[i].rgb[1];
+        returnVoxelGrid[i].rgb[2] = voxelGrid[i].rgb[0];
+    }
+
+    delete[] voxelGrid;
+
+    auto _TimeEnd = std::chrono::steady_clock::now();
+
+    std::chrono::duration<float> duration = _TimeEnd - _TimeStart;
+    float TotalTime = duration.count();
+
+    information += "\nTook " + std::to_string(TotalTime) + " Seconds to create VoxelModel on GPU";
+
+    return returnVoxelGrid;
 }
 
 void ModelToVoxel::LoadModelForGPU(
@@ -296,7 +445,7 @@ void ModelToVoxel::LoadModelForGPU(
             theReturn.texturesGPU[m] = rm->getResource<TextureViewClass>("VoxelTextures__" + pathString);
             if (theReturn.texturesGPU[m] == nullptr)
             {
-                theReturn.texturesGPU[m] = createTexture(pathString, rm, gfx);
+                theReturn.texturesGPU[m] = createTexture(pathString, rm, gfx, 1);
                 rm->addResource(theReturn.texturesGPU[m], "VoxelTextures__" + pathString);
             }
         }
@@ -616,15 +765,17 @@ DirectX::XMUINT4 ModelToVoxel::ColorFromUVAndTexture(DirectX::XMFLOAT2 UV, const
 Voxel* ModelToVoxel::CreateVoxelModelCPU() {
     
     VoxelModel model;
-    information = "Loading Model...";
+
+    
     LoadModelForCPU(model, rm);
+    auto _TimeStart = std::chrono::steady_clock::now();
+
     if (model.meshes.size() == 0)
     {
         return nullptr;
     }
-    information = "Creating Voxel Model...";
 
-    //Create a smaller version?
+    //Create a smaller version
     {
         float xSize = boundingBox[1].x - boundingBox[0].x;
         float ySize = boundingBox[1].y - boundingBox[0].y;
@@ -644,30 +795,35 @@ Voxel* ModelToVoxel::CreateVoxelModelCPU() {
     voxelSize += 0.0000001f;//BIAS IS NEEDED
     const DirectX::XMFLOAT3 minSizes = boundingBox[0];
 
-    
-
-    const int nrOfThreads = (std::thread::hardware_concurrency() / 2) + 1;
+    //const int nrOfThreads = std::thread::hardware_concurrency() - 2;
+    const int nrOfThreads = model.meshes.size();
+    //information += "\nnrOfThreads " + std::to_string(nrOfThreads) + "\n";
+    //const int nrOfThreads = 1;
     std::thread* threads = new std::thread[nrOfThreads];
 
     for (uint32_t m = 0; m < model.meshes.size(); m++) 
     {
-        for (int i = 0; i < nrOfThreads; i++)
-        {
-            threads[i] = std::thread(&ModelToVoxel::TriangleLoading, this,
-                model,
-                i,
-                nrOfThreads,
-                m,
-                voxelSize,
-                minSizes,
-                voxelGrid
-            );
-        }
-        for (int i = 0; i < nrOfThreads; i++)
-        {
-            threads[i].join();
-        }
+        threads[m] = std::thread(&ModelToVoxel::TriangleLoading, this,
+            model,
+            0,
+            1,
+            m,
+            voxelSize,
+            minSizes,
+            voxelGrid
+        );
     }
+    for (int i = 0; i < nrOfThreads; i++)
+    {
+        threads[i].join();
+    }
+
+    auto _TimeEnd = std::chrono::steady_clock::now();
+
+    std::chrono::duration<float> duration = _TimeEnd - _TimeStart;
+    float TotalTime = duration.count();
+
+    information += "CPU time took " + std::to_string(TotalTime) + " Time";
 
     return voxelGrid;
 }

@@ -20,6 +20,8 @@ void Chunk::setLOD(const uint32_t lod)
 {
 	this->lod = lod;
 	cbData.bindlessTextureIndex.x = PtrToModelLOD[lod];
+	cbData.bindlessTextureIndex.y = lod;
+	updateConstantBuffers();
 }
 
 void Chunk::setTexturePointerForLod(const uint32_t& texturePtr, const uint32_t& lod)

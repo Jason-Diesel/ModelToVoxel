@@ -26,6 +26,7 @@ private:
 	//Chunk* testChunk;
 
 	uint32_t LightObject, LightObject2;
+	TextureHeap translationTextureHeapUAV;
 
 	DirectX::XMFLOAT3 spinAround;
 };
