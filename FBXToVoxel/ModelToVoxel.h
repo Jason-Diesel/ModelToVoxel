@@ -25,6 +25,7 @@ struct VoxelModel {
 	std::vector<VoxelMesh> meshes;
 	std::vector<TextureViewClass*> texturesGPU;
 	std::vector<TextureForVoxels*> texturesCPU;
+	std::vector<DirectX::XMINT4> IndeciesStartAndEnd;//Start indecies, end indecies, MaterialIndex On CPU, Material IndexOnGPU
 	//MATERIALS
 };
 

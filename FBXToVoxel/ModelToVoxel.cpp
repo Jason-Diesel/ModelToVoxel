@@ -58,13 +58,14 @@ void ModelToVoxel::Start()
     //    gfx
     //);
     std::vector<MaterialDescription> ForComputeVoxels;
-    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
-    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
-    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
-    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV));
+    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));//VoxelGrid
+    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));//Vertecies
+    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));//Indecies
+    ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));//WhatTexture
+    ForComputeVoxels.push_back(MaterialDescription(200, D3D12_DESCRIPTOR_RANGE_TYPE_SRV));//MeshTexture
 
     computeVoxelsShader = shaderHandler->createShader(1, ForComputeVoxels, "ComputeVoxels.cso");
-    rbBufferHeap.init(50, gfx->getDevice());
+    rbBufferHeap.init(300, gfx->getDevice());
     
     //rbBufferHeap.createUAV(rbBuffer->getUAVResource(), gfx->getDevice());
 
@@ -266,6 +267,7 @@ Voxel* ModelToVoxel::CreateVoxelModelGPU()
     creatingVoxelModelDataData.sizes = DirectX::XMUINT4(sizes.x, sizes.y, sizes.z, 0);
     creatingVoxelModelDataData.minSizes = DirectX::XMFLOAT4(minSizes.x, minSizes.y, minSizes.z, 0);
     creatingVoxelModelDataData.voxelSize.x = voxelSize;
+    creatingVoxelModelDataData.voxelSize.w = model.IndeciesStartAndEnd.size();
 
     creatingVoxelModelData = CreateConstantBuffer(gfx, creatingVoxelModelDataData);
 
@@ -275,105 +277,158 @@ Voxel* ModelToVoxel::CreateVoxelModelGPU()
         sizeof(VoxelGPU) * sizes.x * sizes.y * sizes.z,
         gfx
     );
+
     rbBuffer->positionInHeap = rbBufferHeap.createUAV(
         rbBuffer->getUAVResource(), gfx->getDevice(), sizes.x * sizes.y * sizes.z, sizeof(VoxelGPU)
     );
+
+
+    //Get first good texture
+    for (uint32_t i = 0; i < model.IndeciesStartAndEnd.size(); i++)
+    {
+        model.IndeciesStartAndEnd[i].w = -1;
+    }
+    int32_t firstGoodTexture = -1;
+
+    const uint32_t startOfTextures = 10;
+    uint32_t position = 0;
+    
+    for (uint32_t i = 0; i < model.IndeciesStartAndEnd.size(); i++)
+    {
+        if (model.texturesGPU[model.IndeciesStartAndEnd[i].z] != nullptr)
+        {
+            model.IndeciesStartAndEnd[i].w = rbBufferHeap.createSRV(
+                position + startOfTextures, model.texturesGPU[model.IndeciesStartAndEnd[i].z], gfx->getDevice()
+            ) - startOfTextures;
+            if (model.IndeciesStartAndEnd[i].w == position)
+            {
+                position++;
+            }
+            if (firstGoodTexture == -1)
+            {
+                firstGoodTexture = model.IndeciesStartAndEnd[i].w;
+            }
+        }
+    }
+    for (uint32_t i = 0; i < model.IndeciesStartAndEnd.size(); i++)
+    {
+        if (model.IndeciesStartAndEnd[i].w == -1)
+        {
+            model.IndeciesStartAndEnd[i].w = firstGoodTexture;
+        }
+    }
+    
+
     for (int m = 0; m < model.meshes.size(); m++)
     {
-        if (model.texturesGPU[model.meshes[m].materialIndex] != nullptr)
+        creatingVoxelModelDataData.sizes.w = model.meshes[m].indecies.size();
+        updateConstantBuffer(creatingVoxelModelDataData, creatingVoxelModelData);
+
+        shaderHandler->setComputeShader(this->computeVoxelsShader);
+        ID3D12DescriptorHeap* heaps[] = { rbBufferHeap.getHeap() };
+        gfx->getCommandList(0)->SetDescriptorHeaps(_countof(heaps), heaps);
+
+        GraphicsBufferWithData computeVoxelData[3];
+        computeVoxelData[0].init(
+            model.meshes[m].vertecies.data(),
+            sizeof(Vertecies)* model.meshes[m].vertecies.size(),
+            gfx
+        );
+        computeVoxelData[0].posInHeap = rbBufferHeap.createNormalResource(
+            computeVoxelData[0].resource,
+            gfx->getDevice(),
+            sizeof(Vertecies),
+            model.meshes[m].vertecies.size()
+        );
+
+        computeVoxelData[1].init(
+            model.meshes[m].indecies.data(),
+            sizeof(uint32_t)* model.meshes[m].indecies.size(),
+            gfx
+        );
+        computeVoxelData[1].posInHeap = rbBufferHeap.createNormalResource(
+            computeVoxelData[1].resource,
+            gfx->getDevice(),
+            sizeof(uint32_t),
+            model.meshes[m].indecies.size()
+        );
+
+        computeVoxelData[2].init(
+            model.IndeciesStartAndEnd.data(),
+            sizeof(DirectX::XMUINT4) * model.IndeciesStartAndEnd.size(),
+            gfx
+        );
+        computeVoxelData[2].posInHeap = rbBufferHeap.createNormalResource(
+            computeVoxelData[2].resource,
+            gfx->getDevice(),
+            sizeof(DirectX::XMUINT4),
+            model.IndeciesStartAndEnd.size()
+        );
+        
+
+        //updateConstantBuffer(creatingVoxelModelDataData, creatingVoxelModelData);
+
+        //SET Data for voxels
+        gfx->getCommandList(0)->SetComputeRootConstantBufferView(0, creatingVoxelModelData.constantBuffer->GetGPUVirtualAddress());
+
+        const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(rbBufferHeap.getHeap()->GetGPUDescriptorHandleForHeapStart());
+        CD3DX12_GPU_DESCRIPTOR_HANDLE ChangeingHandle = srvGpuHandle;
+
+        //Voxels
+        ChangeingHandle.Offset(rbBuffer->positionInHeap, descriptorSize);
+        gfx->getCommandList(0)->SetComputeRootDescriptorTable(1, ChangeingHandle);
+        ChangeingHandle = srvGpuHandle;
+        //Vertecies
+        ChangeingHandle.Offset(computeVoxelData[0].posInHeap, descriptorSize);
+        gfx->getCommandList(0)->SetComputeRootDescriptorTable(2, ChangeingHandle);
+        ChangeingHandle = srvGpuHandle;
+        //Indecies
+        ChangeingHandle.Offset(computeVoxelData[1].posInHeap, descriptorSize);
+        gfx->getCommandList(0)->SetComputeRootDescriptorTable(3, ChangeingHandle);
+        ChangeingHandle = srvGpuHandle;
+        //WhatTexture
+        ChangeingHandle.Offset(computeVoxelData[2].posInHeap, descriptorSize);
+        gfx->getCommandList(0)->SetComputeRootDescriptorTable(4, ChangeingHandle);
+        ChangeingHandle = srvGpuHandle;
+        //The Textures
+        ChangeingHandle.Offset(startOfTextures, descriptorSize);
+        gfx->getCommandList(0)->SetComputeRootDescriptorTable(5, ChangeingHandle);
+
+        //THIS RIGHT NOW MAKES IT ONE THREAD BUT JUST TO TEST
+        const uint32_t triangleCount = model.meshes[m].indecies.size() / 3;
+        const uint32_t threadGroupSize = 64;
+        const uint32_t dispatchX = (triangleCount + threadGroupSize - 1) / threadGroupSize;
+        gfx->getCommandList(0)->Dispatch(
+            dispatchX,
+            1, 
+            1
+        );
+
         {
-            creatingVoxelModelDataData.sizes.w = model.meshes[m].indecies.size();
-            updateConstantBuffer(creatingVoxelModelDataData, creatingVoxelModelData);
-
-            shaderHandler->setComputeShader(this->computeVoxelsShader);
-            ID3D12DescriptorHeap* heaps[] = { rbBufferHeap.getHeap() };
-            gfx->getCommandList(0)->SetDescriptorHeaps(_countof(heaps), heaps);
-
-            GraphicsBufferWithData computeVoxelData[2];
-            computeVoxelData[0].init(
-                model.meshes[m].vertecies.data(),
-                sizeof(Vertecies)* model.meshes[m].vertecies.size(),
-                gfx
-            );
-            computeVoxelData[0].posInHeap = rbBufferHeap.createNormalResource(
-                computeVoxelData[0].resource,
-                gfx->getDevice(),
-                sizeof(Vertecies),
-                model.meshes[m].vertecies.size()
-            );
-
-            computeVoxelData[1].init(
-                model.meshes[m].indecies.data(),
-                sizeof(uint32_t)* model.meshes[m].indecies.size(),
-                gfx
-            );
-            computeVoxelData[1].posInHeap = rbBufferHeap.createNormalResource(
-                computeVoxelData[1].resource,
-                gfx->getDevice(),
-                sizeof(uint32_t),
-                model.meshes[m].indecies.size()
-            );
-            uint32_t textureIndex = rbBufferHeap.createSRV(model.texturesGPU[model.meshes[m].materialIndex], gfx);
-
-            //updateConstantBuffer(creatingVoxelModelDataData, creatingVoxelModelData);
-
-            //SET Data for voxels
-            gfx->getCommandList(0)->SetComputeRootConstantBufferView(0, creatingVoxelModelData.constantBuffer->GetGPUVirtualAddress());
-
-            const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-            CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(rbBufferHeap.getHeap()->GetGPUDescriptorHandleForHeapStart());
-            CD3DX12_GPU_DESCRIPTOR_HANDLE ChangeingHandle = srvGpuHandle;
-
-            //Voxels
-            ChangeingHandle.Offset(rbBuffer->positionInHeap, descriptorSize);
-            gfx->getCommandList(0)->SetComputeRootDescriptorTable(1, ChangeingHandle);
-            ChangeingHandle = srvGpuHandle;
-            //Vertecies
-            ChangeingHandle.Offset(computeVoxelData[0].posInHeap, descriptorSize);
-            gfx->getCommandList(0)->SetComputeRootDescriptorTable(2, ChangeingHandle);
-            ChangeingHandle = srvGpuHandle;
-            //Indecies
-            ChangeingHandle.Offset(computeVoxelData[1].posInHeap, descriptorSize);
-            gfx->getCommandList(0)->SetComputeRootDescriptorTable(3, ChangeingHandle);
-            ChangeingHandle = srvGpuHandle;
-            //Texture
-            ChangeingHandle.Offset(textureIndex, descriptorSize);
-            gfx->getCommandList(0)->SetComputeRootDescriptorTable(4, ChangeingHandle);
-
-            //THIS RIGHT NOW MAKES IT ONE THREAD BUT JUST TO TEST
-            const uint32_t triangleCount = model.meshes[m].indecies.size() / 3;
-            const uint32_t threadGroupSize = 128;
-            const uint32_t dispatchX = (triangleCount + threadGroupSize - 1) / threadGroupSize;
-            gfx->getCommandList(0)->Dispatch(
-                dispatchX,
-                1, 
-                1
-            );
-
-            {
-                CheckHR(gfx->getCommandList(0)->Close())
-                ID3D12CommandList* const commandLists[] = { gfx->getCommandList(0) };
-                gfx->getCommandQueue()->ExecuteCommandLists(_countof(commandLists), commandLists);
-            }
-            CheckHR(gfx->getCommandQueue()->Signal(gfx->getFence(), ++gfx->getFenceValue()))
-            CheckHR(gfx->getFence()->SetEventOnCompletion(gfx->getFenceValue(), gfx->getFenceEvent()))
-            if (::WaitForSingleObject(gfx->getFenceEvent(), 20000) == WAIT_FAILED)
-            {
-                breakDebug;
-            }
-            CheckHR(gfx->getCommandAllocator(0)->Reset())
-            CheckHR(gfx->getCommandList(0)->Reset(gfx->getCommandAllocator(0), nullptr))
-
-            //DELETE AND DO EVERYTHING AGAIN
-            rbBufferHeap.removeFromHeap(computeVoxelData[0].posInHeap);
-            rbBufferHeap.removeFromHeap(computeVoxelData[1].posInHeap);
-            rbBufferHeap.removeFromHeap(textureIndex);
-
-            computeVoxelData[0].reset();
-            computeVoxelData[1].reset();
-
-            doneShit = true;
+            CheckHR(gfx->getCommandList(0)->Close())
+            ID3D12CommandList* const commandLists[] = { gfx->getCommandList(0) };
+            gfx->getCommandQueue()->ExecuteCommandLists(_countof(commandLists), commandLists);
         }
+        CheckHR(gfx->getCommandQueue()->Signal(gfx->getFence(), ++gfx->getFenceValue()))
+        CheckHR(gfx->getFence()->SetEventOnCompletion(gfx->getFenceValue(), gfx->getFenceEvent()))
+        if (::WaitForSingleObject(gfx->getFenceEvent(), 20000) == WAIT_FAILED)
+        {
+            breakDebug;
+        }
+        CheckHR(gfx->getCommandAllocator(0)->Reset())
+        CheckHR(gfx->getCommandList(0)->Reset(gfx->getCommandAllocator(0), nullptr))
+
+        //DELETE AND DO EVERYTHING AGAIN
+        rbBufferHeap.removeFromHeap(computeVoxelData[0].posInHeap);
+        rbBufferHeap.removeFromHeap(computeVoxelData[1].posInHeap);
+        rbBufferHeap.removeFromHeap(computeVoxelData[2].posInHeap);
+
+        computeVoxelData[0].reset();
+        computeVoxelData[1].reset();
+        computeVoxelData[2].reset();
+
+        doneShit = true;
     }
     voxelGrid = rbBuffer->getData<VoxelGPU>(gfx);
     //Make the VoxelGPU(This uses uint32_t) to Voxel(This uses uint16_t)
@@ -420,7 +475,7 @@ void ModelToVoxel::LoadModelForGPU(
         return;
     }
 
-    theReturn.meshes.resize(pScene->mNumMeshes);
+    theReturn.meshes.resize(1);
 
     boundingBox[0] = DirectX::XMFLOAT3(D3D12_FLOAT32_MAX, D3D12_FLOAT32_MAX, D3D12_FLOAT32_MAX);
     boundingBox[1] = DirectX::XMFLOAT3(-D3D12_FLOAT32_MAX, -D3D12_FLOAT32_MAX, -D3D12_FLOAT32_MAX);
@@ -446,11 +501,13 @@ void ModelToVoxel::LoadModelForGPU(
             if (theReturn.texturesGPU[m] == nullptr)
             {
                 theReturn.texturesGPU[m] = createTexture(pathString, rm, gfx, 1);
+                //theReturn.texturesGPU[m] = createTextureWithWriteAccess(pathString, rm, gfx, 1);
                 rm->addResource(theReturn.texturesGPU[m], "VoxelTextures__" + pathString);
             }
         }
     }
 
+    uint32_t vertexOffset = 0;
     //LOAD MESHES
     for (uint32_t m = 0; m < pScene->mNumMeshes; m++)
     {
@@ -473,14 +530,26 @@ void ModelToVoxel::LoadModelForGPU(
             boundingBox[1].y = max(vertex.position.y, boundingBox[1].y);
             boundingBox[1].z = max(vertex.position.z, boundingBox[1].z);
 
-            theReturn.meshes[m].vertecies.push_back(vertex);
+            theReturn.meshes[0].vertecies.push_back(vertex);
         }
+
+        theReturn.IndeciesStartAndEnd.push_back(DirectX::XMINT4(
+            theReturn.meshes[0].indecies.size(),
+            theReturn.meshes[0].indecies.size() + (mesh->mNumFaces * 3),
+            mesh->mMaterialIndex,
+            0
+        ));
+
         for (uint32_t i = 0; i < mesh->mNumFaces; i++) {
-            theReturn.meshes[m].indecies.push_back(mesh->mFaces[i].mIndices[0]);
-            theReturn.meshes[m].indecies.push_back(mesh->mFaces[i].mIndices[1]);
-            theReturn.meshes[m].indecies.push_back(mesh->mFaces[i].mIndices[2]);
+            theReturn.meshes[0].indecies.push_back(mesh->mFaces[i].mIndices[0] + vertexOffset);
+            theReturn.meshes[0].indecies.push_back(mesh->mFaces[i].mIndices[1] + vertexOffset);
+            theReturn.meshes[0].indecies.push_back(mesh->mFaces[i].mIndices[2] + vertexOffset);
         }
-        theReturn.meshes[m].materialIndex = mesh->mMaterialIndex;
+        
+        //TODO: Take care of soon
+        //theReturn.meshes[m].materialIndex = mesh->mMaterialIndex;
+        
+        vertexOffset += mesh->mNumVertices;
     }
 }
 

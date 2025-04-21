@@ -120,6 +120,7 @@ void readImage(
 	}
 
 	theReturn->textureType = D3D12_SRV_DIMENSION_TEXTURE2D;
+	theReturn->UAVType = D3D12_UAV_DIMENSION_TEXTURE2D;
 	delete mipChain;
 	rm->addResource(theReturn, ExtraNamingTexture + filePath);
 }
@@ -245,7 +246,7 @@ TextureViewClass* createTexture(
 	return theReturn;
 }
 
-TextureViewClass* createTextureWithWriteAccess(const std::string& filePath, ResourceManager* rm, Graphics* gfx)
+TextureViewClass* createTextureWithWriteAccess(const std::string& filePath, ResourceManager* rm, Graphics* gfx, uint32_t commandThread)
 {
 	struct stat buffer;
 	if (!(stat(filePath.c_str(), &buffer) == 0)) {
@@ -263,8 +264,16 @@ TextureViewClass* createTextureWithWriteAccess(const std::string& filePath, Reso
 	}
 
 	theReturn = new TextureViewClass();
-	readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, 0);
-
+	readImage(
+		theReturn, 
+		filePath, 
+		rm, 
+		gfx, 
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, 
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,//D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, 
+		commandThread
+	);
+	//D3D12_RESOURCE_STATE_UNORDERED_ACCESS
 	return theReturn;
 }
 

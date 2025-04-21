@@ -152,7 +152,22 @@ uint32_t TextureHeap::createUAV(TextureViewClass* texture, Graphics* gfx)
 
 uint32_t TextureHeap::createUAV(const uint32_t pos, TextureViewClass* texture, ID3D12Device8* device)
 {
-	return 0;
+	if (texturePointer.find(texture) != texturePointer.end())
+	{
+		return texturePointer[texture];
+	}
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.Format = texture->srvResource->GetDesc().Format;
+	uavDesc.ViewDimension = texture->UAVType;
+	uavDesc.Texture3D.WSize = -1;
+	
+	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(srvHeap->GetCPUDescriptorHandleForHeapStart(), pos, device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
+	device->CreateUnorderedAccessView(texture->srvResource.Get(), nullptr, &uavDesc, srvHandle);
+	
+	TextureViewptrs[pos] = texture;
+	nrOfCurrentTextures++;
+	texturePointer.insert(std::pair<TextureViewClass*, uint32_t>(texture, pos));
+	return pos;
 }
 
 uint32_t TextureHeap::createUAV(
@@ -179,8 +194,6 @@ uint32_t TextureHeap::createUAV(
 			device->CreateUnorderedAccessView(resource, nullptr, &uavDesc, srvHandle);
 
 			TextureViewptrs[i] = UAVThatDoesntExist;//how should I do here?
-			//TextureViewptrs[i]->srvResource = resource;
-			//TextureViewptrs[i]->srvHandle = srvHandle;
 			nrOfCurrentTextures++;
 			return i;
 		}
