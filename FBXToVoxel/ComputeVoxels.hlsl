@@ -33,14 +33,37 @@ uint getIndex(const uint x, const uint y, const uint z, const uint width, const 
 
 int getTextureID(uint indeciesID)
 {
-    uint i = 0;
-    while(i < voxelSize.w )
+    //uint i = 0;
+    //while(i < voxelSize.w )
+    //{
+    //    if (indeciesID >= WhatTexture[i].x && indeciesID < WhatTexture[i].y)
+    //    {
+    //        return WhatTexture[i].w;
+    //    }
+    //    i++;
+    //}
+    //return 0;
+    
+    uint left = 0;
+    uint right = voxelSize.w - 1;
+
+    while (left <= right)
     {
-        if (indeciesID >= WhatTexture[i].x && indeciesID < WhatTexture[i].y)
+        uint mid = (left + right) / 2;
+        int4 range = WhatTexture[mid];
+        
+        if (indeciesID < range.x)
         {
-            return WhatTexture[i].w;
+            right = mid - 1;
         }
-        i++;
+        else if (indeciesID >= range.y)
+        {
+            left = mid + 1;
+        }
+        else
+        {
+            return range.w;
+        }
     }
     return 0;
 }
@@ -50,19 +73,19 @@ void lineToLine(
     uint3 endVoxel,
     float2 startUV,
     float2 endUV,
-    uint3 sizes,
-    uint textureId
+    const uint3 sizes,
+    const uint textureId
 )
 {
     uint3 traverseVoxel = startVoxel;
     
-    int3 distanceV = int3(
+    const int3 distanceV = int3(
         endVoxel.x - startVoxel.x,
         endVoxel.y - startVoxel.y,
         endVoxel.z - startVoxel.z
     );
     
-    int3 stepDirection = int3(
+    const int3 stepDirection = int3(
         (distanceV.x > 0) ? 1 : distanceV.x < 0 ? -1 : 0,
         (distanceV.y > 0) ? 1 : distanceV.y < 0 ? -1 : 0,
         (distanceV.z > 0) ? 1 : distanceV.z < 0 ? -1 : 0
@@ -76,7 +99,7 @@ void lineToLine(
         distanceV.z / l
     );
     
-    float3 stepLength = float3(
+    const float3 stepLength = float3(
         stepDirection.x != 0 ? abs(1.0f / lineDirection.x) : 9999999,
         stepDirection.y != 0 ? abs(1.0f / lineDirection.y) : 9999999,
         stepDirection.z != 0 ? abs(1.0f / lineDirection.z) : 9999999
@@ -88,7 +111,7 @@ void lineToLine(
         0
     );
     
-    float totalDist = distance(startVoxel, endVoxel);
+    const float totalDist = distance(startVoxel, endVoxel);
     
     while (!(traverseVoxel.x == endVoxel.x && traverseVoxel.y == endVoxel.y && traverseVoxel.z == endVoxel.z))
     {
@@ -107,10 +130,10 @@ void lineToLine(
             traverseVoxel.z += stepDirection.z;
             tMax.z += stepLength.z;
         }
-        float procent = distance(startVoxel, traverseVoxel) / totalDist;
-        float2 uv = lerp(startUV, endUV, saturate(procent));
+        const float procent = distance(startVoxel, traverseVoxel) / totalDist;
+        const float2 uv = lerp(startUV, endUV, saturate(procent));
         
-        float4 color = MeshTexture[textureId].SampleLevel(samp, uv, 0);
+        const float4 color = MeshTexture[textureId].SampleLevel(samp, uv, 0);
         
         if(color.w != 0)
         {
@@ -154,12 +177,8 @@ void main( uint3 DTid : SV_DispatchThreadID )
     int3 voxelPosition[3];
     for (uint j = 0; j < 3; j++)
     {
-        float3 positionInGrid = (triangleVertecies[j].position - minSizes.xyz) / voxelSize.x;
+        const float3 positionInGrid = (triangleVertecies[j].position - minSizes.xyz) / voxelSize.x;
         voxelPosition[j] = int3(positionInGrid.x, positionInGrid.y, positionInGrid.z);
-        
-        //int BlockIndex = getIndex(voxelPosition[j].x, voxelPosition[j].y, voxelPosition[j].z >= sizes.z ? sizes.z - 1 : voxelPosition[j].z, sizes.x, sizes.y);
-        //float4 color = MeshTexture[textureID].SampleLevel(samp, triangleVertecies[j].uv, 0);
-        //VoxelGrid[BlockIndex].color = uint3(color.x * 255.f, color.y * 255.f, color.z * 255.f);
     }
     
     //From a -> b and everytime we get a block, C to a <-> b
@@ -200,7 +219,7 @@ void main( uint3 DTid : SV_DispatchThreadID )
         0
     );
     
-    float totalDistance = distance(startVoxel, endVoxel);
+    const float totalDistance = distance(startVoxel, endVoxel);
     
     while (!(traverseVoxel.x == voxelPosition[1].x && traverseVoxel.y == voxelPosition[1].y && traverseVoxel.z == voxelPosition[1].z))
     {
@@ -220,16 +239,9 @@ void main( uint3 DTid : SV_DispatchThreadID )
             tMax.z += stepLength.z;
         }
         
-        
-        
         //Unsure if we gonna add it here also?
         float procent = distance(traverseVoxel, startVoxel) / totalDistance;
         float2 uv = lerp(triangleVertecies[0].uv, triangleVertecies[1].uv, saturate(procent));
-        
-        
-        //int BlockIndex = getIndex(traverseVoxel.x, traverseVoxel.y, traverseVoxel.z >= sizes.z ? sizes.z - 1 : traverseVoxel.z, sizes.x, sizes.y);
-        //float4 color = MeshTexture[textureID].SampleLevel(samp, uv, 0);
-        //VoxelGrid[BlockIndex].color = uint3(color.x * 255.f, color.y * 255.f, color.z * 255.f);
         
         //Do line to line with triangleVertecies[2] and traverselVertex
         lineToLine(linerVoxel, traverseVoxel, Vertecies[triangleIndecies[2]].uv, uv, sizes.xyz, textureID);
