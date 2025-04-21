@@ -155,23 +155,7 @@ void VoxelScene::Update(const float& dt)
         lights->getLight(1)->setRotation(camera.getRotation());
     }
 
-    //Sort Chunks; based on all certain camera
-    std::vector<std::pair<float, Chunk*>> chunkWithDistace;
-    for (const auto& x : chunks)
-    {
-        for (const auto& y : x.second)
-        {
-            for (const auto& z : y.second)
-            {
-                float magDistance = HF::magDistance(z.second->getPosition(), camera.getPostion());
-                chunkWithDistace.emplace_back(magDistance, z.second);
-            }
-        }
-    }
-    std::sort(chunkWithDistace.begin(), chunkWithDistace.end(), [](const std::pair<float, Chunk*>& a, const std::pair<float, Chunk*>& b)
-        {
-            return a.first < b.first;
-        });
+    
 
     //Rotate Chunks
 
@@ -187,6 +171,24 @@ void VoxelScene::Render()
     //renderer->render(allObjects[0]);
     //VoxelPosition//SET DESCRIPTOR HEAP
     //shaderHandler->setShader(voxelShader);
+
+    //Sort Chunks; based on all certain camera
+    std::vector<std::pair<float, Chunk*>> chunkWithDistace;
+    for (const auto& x : chunks)
+    {
+        for (const auto& y : x.second)
+        {
+            for (const auto& z : y.second)
+            {
+                float magDistance = HF::magDistance(z.second->getPosition(), this->camera.getPostion());
+                chunkWithDistace.emplace_back(magDistance, z.second);
+            }
+        }
+    }
+    std::sort(chunkWithDistace.begin(), chunkWithDistace.end(), [](const std::pair<float, Chunk*>& a, const std::pair<float, Chunk*>& b)
+        {
+            return a.first < b.first;
+        });
     
     const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -201,30 +203,52 @@ void VoxelScene::Render()
         lights->setCurrentLightAsPOV();
     }
 
-    for (auto& itx : chunks) {
-        for (auto& ity : itx.second) {
-            for (auto& itz : ity.second) {
-                const DirectX::XMFLOAT3 &chunkPos = itz.second->getPosition();
-                const DirectX::XMFLOAT3 middleChunkPosition = DirectX::XMFLOAT3(chunkPos.x + (chunkSize / 2), chunkPos.y + (chunkSize / 2), chunkPos.z + (chunkSize / 2));
-                float distanceBetweenCameraAndChunkMiddle = HF::magDistance(this->camera.getPostion(), middleChunkPosition);
-                //float distanceBetweenCameraAndChunkMiddle = HF::distance(DirectX::XMFLOAT3(0,0,0), middleChunkPosition);
+    for (auto& it : chunkWithDistace)
+    {
+        const DirectX::XMFLOAT3& chunkPos = it.second->getPosition();
+        const DirectX::XMFLOAT3 middleChunkPosition = DirectX::XMFLOAT3(chunkPos.x + (chunkSize / 2), chunkPos.y + (chunkSize / 2), chunkPos.z + (chunkSize / 2));
+        float distanceBetweenCameraAndChunkMiddle = HF::magDistance(this->camera.getPostion(), middleChunkPosition);
+        //float distanceBetweenCameraAndChunkMiddle = HF::distance(DirectX::XMFLOAT3(0,0,0), middleChunkPosition);
 
-                //LOD
-                int lod = (int)log2(distanceBetweenCameraAndChunkMiddle / (chunkSize * chunkSize * 8));
+        //LOD
+        int lod = (int)log2(distanceBetweenCameraAndChunkMiddle / (chunkSize * chunkSize * 8));
 
-                //int lod = distanceBetweenCameraAndChunkMiddle / sqrt(chunkSize * chunkSize * chunkSize);//Need to find something better here
-                lod = std::clamp(lod, 0, NROFLOD - 1);
-                itz.second->setLOD(lod);
+        //int lod = distanceBetweenCameraAndChunkMiddle / sqrt(chunkSize * chunkSize * chunkSize);//Need to find something better here
+        lod = std::clamp(lod, 0, NROFLOD - 1);
+        it.second->setLOD(lod);
 
-                CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
-                srvGpuHandle.Offset(itz.second->cbData.bindlessTextureIndex.x, descriptorSize);
-                gfx->getCommandList()->SetGraphicsRootDescriptorTable(4, srvGpuHandle);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
+        srvGpuHandle.Offset(it.second->cbData.bindlessTextureIndex.x, descriptorSize);
+        gfx->getCommandList()->SetGraphicsRootDescriptorTable(4, srvGpuHandle);
 
-                itz.second->setConstantBuffers(gfx);//SET many times
-                renderer->render(itz.second, voxelModels[itz.second->getLod()]);//Set many times
-            }
-        }
+        it.second->setConstantBuffers(gfx);//SET many times
+        renderer->render(it.second, voxelModels[it.second->getLod()]);//Set many times
     }
+
+    //for (auto& itx : chunks) {
+    //    for (auto& ity : itx.second) {
+    //        for (auto& itz : ity.second) {
+    //            const DirectX::XMFLOAT3 &chunkPos = itz.second->getPosition();
+    //            const DirectX::XMFLOAT3 middleChunkPosition = DirectX::XMFLOAT3(chunkPos.x + (chunkSize / 2), chunkPos.y + (chunkSize / 2), chunkPos.z + (chunkSize / 2));
+    //            float distanceBetweenCameraAndChunkMiddle = HF::magDistance(this->camera.getPostion(), middleChunkPosition);
+    //            //float distanceBetweenCameraAndChunkMiddle = HF::distance(DirectX::XMFLOAT3(0,0,0), middleChunkPosition);
+    //
+    //            //LOD
+    //            int lod = (int)log2(distanceBetweenCameraAndChunkMiddle / (chunkSize * chunkSize * 8));
+    //
+    //            //int lod = distanceBetweenCameraAndChunkMiddle / sqrt(chunkSize * chunkSize * chunkSize);//Need to find something better here
+    //            lod = std::clamp(lod, 0, NROFLOD - 1);
+    //            itz.second->setLOD(lod);
+    //
+    //            CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
+    //            srvGpuHandle.Offset(itz.second->cbData.bindlessTextureIndex.x, descriptorSize);
+    //            gfx->getCommandList()->SetGraphicsRootDescriptorTable(4, srvGpuHandle);
+    //
+    //            itz.second->setConstantBuffers(gfx);//SET many times
+    //            renderer->render(itz.second, voxelModels[itz.second->getLod()]);//Set many times
+    //        }
+    //    }
+    //}
 }
 
 void VoxelScene::RenderUI()

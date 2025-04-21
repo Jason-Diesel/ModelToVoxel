@@ -15,6 +15,8 @@ cbuffer Data : register(b0)
     float4 voxelSize;//W is nr of textures
 };
 
+#define FLT_MAX 3.402823466e+38F
+
 RWStructuredBuffer<voxelData> VoxelGrid : register(u0);
 
 //The Mesh
@@ -100,9 +102,9 @@ void lineToLine(
     );
     
     const float3 stepLength = float3(
-        stepDirection.x != 0 ? abs(1.0f / lineDirection.x) : 9999999,
-        stepDirection.y != 0 ? abs(1.0f / lineDirection.y) : 9999999,
-        stepDirection.z != 0 ? abs(1.0f / lineDirection.z) : 9999999
+        stepDirection.x != 0 ? abs(1.0f / lineDirection.x) : FLT_MAX,
+        stepDirection.y != 0 ? abs(1.0f / lineDirection.y) : FLT_MAX,
+        stepDirection.z != 0 ? abs(1.0f / lineDirection.z) : FLT_MAX
     );
     
     float3 tMax = float3(
@@ -137,11 +139,15 @@ void lineToLine(
         
         if(color.w != 0)
         {
-            int index = getIndex(traverseVoxel.x, traverseVoxel.y, traverseVoxel.z >= sizes.z ? sizes.z - 1 : traverseVoxel.z, sizes.x, sizes.y);
-            VoxelGrid[index].color = uint3(color.x * 255, color.y * 255, color.z * 255);
-            if (color.x + color.y + color.z == 0)
+            const int index = getIndex(traverseVoxel.x, traverseVoxel.y, traverseVoxel.z >= sizes.z ? sizes.z - 1 : traverseVoxel.z, sizes.x, sizes.y);
+            const uint3 currentColor = VoxelGrid[index].color;
+            if (currentColor.x == 0 && currentColor.y == 0 && currentColor.z == 0)
             {
-                VoxelGrid[index].color.x = 1;
+                VoxelGrid[index].color = uint3(color.x * 255, color.y * 255, color.z * 255);
+                if (color.x + color.y + color.z == 0)
+                {
+                    VoxelGrid[index].color.x = 1;
+                }
             }
         }
     }
@@ -175,6 +181,7 @@ void main( uint3 DTid : SV_DispatchThreadID )
     };
     
     int3 voxelPosition[3];
+    [unroll]
     for (uint j = 0; j < 3; j++)
     {
         const float3 positionInGrid = (triangleVertecies[j].position - minSizes.xyz) / voxelSize.x;
@@ -208,9 +215,9 @@ void main( uint3 DTid : SV_DispatchThreadID )
             );
     
     const float3 stepLength = float3(
-        stepDirection.x != 0 ? abs(1.0f / lineDirection.x) : 9999999,//Cannot find float max value, so just a big number
-        stepDirection.y != 0 ? abs(1.0f / lineDirection.y) : 9999999,//Cannot find float max value, so just a big number
-        stepDirection.z != 0 ? abs(1.0f / lineDirection.z) : 9999999 //Cannot find float max value, so just a big number
+        stepDirection.x != 0 ? abs(1.0f / lineDirection.x) : FLT_MAX, //Cannot find float max value, so just a big number
+        stepDirection.y != 0 ? abs(1.0f / lineDirection.y) : FLT_MAX, //Cannot find float max value, so just a big number
+        stepDirection.z != 0 ? abs(1.0f / lineDirection.z) : FLT_MAX //Cannot find float max value, so just a big number
     );
     
     float3 tMax = float3(

@@ -864,12 +864,10 @@ Voxel* ModelToVoxel::CreateVoxelModelCPU() {
     voxelSize += 0.0000001f;//BIAS IS NEEDED
     const DirectX::XMFLOAT3 minSizes = boundingBox[0];
 
-    //const int nrOfThreads = std::thread::hardware_concurrency() - 2;
     const int nrOfThreads = model.meshes.size();
-    //information += "\nnrOfThreads " + std::to_string(nrOfThreads) + "\n";
-    //const int nrOfThreads = 1;
     std::thread* threads = new std::thread[nrOfThreads];
-
+    
+    //MultiThread
     for (uint32_t m = 0; m < model.meshes.size(); m++) 
     {
         threads[m] = std::thread(&ModelToVoxel::TriangleLoading, this,
@@ -886,6 +884,20 @@ Voxel* ModelToVoxel::CreateVoxelModelCPU() {
     {
         threads[i].join();
     }
+    
+    //One thread
+    //for (uint32_t m = 0; m < model.meshes.size(); m++)
+    //{
+    //    TriangleLoading(
+    //        model,
+    //        0,
+    //        1,
+    //        m,
+    //        voxelSize,
+    //        minSizes,
+    //        voxelGrid
+    //    );
+    //}
 
     auto _TimeEnd = std::chrono::steady_clock::now();
 
