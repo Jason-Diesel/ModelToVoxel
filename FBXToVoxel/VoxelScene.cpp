@@ -208,11 +208,9 @@ void VoxelScene::Render()
         const DirectX::XMFLOAT3& chunkPos = it.second->getPosition();
         const DirectX::XMFLOAT3 middleChunkPosition = DirectX::XMFLOAT3(chunkPos.x + (chunkSize / 2), chunkPos.y + (chunkSize / 2), chunkPos.z + (chunkSize / 2));
         float distanceBetweenCameraAndChunkMiddle = HF::magDistance(this->camera.getPostion(), middleChunkPosition);
-        //float distanceBetweenCameraAndChunkMiddle = HF::distance(DirectX::XMFLOAT3(0,0,0), middleChunkPosition);
 
         //LOD
         int lod = (int)log2(distanceBetweenCameraAndChunkMiddle / (chunkSize * chunkSize * 8));
-
         //int lod = distanceBetweenCameraAndChunkMiddle / sqrt(chunkSize * chunkSize * chunkSize);//Need to find something better here
         lod = std::clamp(lod, 0, NROFLOD - 1);
         it.second->setLOD(lod);
@@ -424,13 +422,13 @@ void VoxelScene::RenderUI()
         }   
         if (ImGui::Button("Testing Box"))
         {   
-            DirectX::XMUINT3 thesizes = { 200, 200, 200 };
-            Voxel* voxelGrid = new Voxel[200 * 200 * 200];
+            DirectX::XMUINT3 thesizes = { chunkSize, chunkSize, chunkSize };
+            Voxel* voxelGrid = new Voxel[chunkSize * chunkSize * chunkSize];
             int i = 0;
             
-            for (int x = 0; x < 200; x++) {
-                for (int y = 0; y < 200; y++) {
-                    for (int z = 0; z < 200; z++) {
+            for (int x = 0; x < chunkSize; x++) {
+                for (int y = 0; y < chunkSize; y++) {
+                    for (int z = 0; z < chunkSize; z++) {
                         Voxel tempVoxel;
                         tempVoxel.rgb[0] = 0;
                         tempVoxel.rgb[1] = 0;
@@ -454,7 +452,7 @@ void VoxelScene::RenderUI()
                 }
             }
             
-            uint32_t* convertedData = new uint32_t[200 * 200 * 200];
+            uint32_t* convertedData = new uint32_t[chunkSize * chunkSize * chunkSize];
             for (int z = 0; z < thesizes.z; z++) {
                 for (int y = 0; y < thesizes.y; y++) {
                     for (int x = 0; x < thesizes.x; x++) {
@@ -478,7 +476,7 @@ void VoxelScene::RenderUI()
                 }
             }
             
-            int nrOfChunks = 1;
+            int nrOfChunks = 2;
             for (int i = 0; i < nrOfChunks; i++)
             {
                 TextureViewClass* voxelTextureData = createTexture(
@@ -522,7 +520,21 @@ Model* VoxelScene::GetVoxelModel(const int size, const int NrOfBlocks)
     std::vector<uint32_t> indecies;
     
     //For X
-    for (int i = 0; i < NrOfBlocks + 1; i++)
+    for (int i = 0; i < 1; i++)
+    {
+        indecies.push_back((uint32_t)vertecies.size() + 0);
+        indecies.push_back((uint32_t)vertecies.size() + 1);
+        indecies.push_back((uint32_t)vertecies.size() + 2);
+        indecies.push_back((uint32_t)vertecies.size() + 1);
+        indecies.push_back((uint32_t)vertecies.size() + 3);
+        indecies.push_back((uint32_t)vertecies.size() + 2);
+
+        vertecies.push_back(VoxelVertecies({ DirectX::XMFLOAT3((float)i * size - 2, 0, 0), DirectX::XMFLOAT3(1, 0, 0) }));
+        vertecies.push_back(VoxelVertecies({ DirectX::XMFLOAT3((float)i * size - 2, 0, NrOfBlocks * size - 1), DirectX::XMFLOAT3(1, 0, 0) }));
+        vertecies.push_back(VoxelVertecies({ DirectX::XMFLOAT3((float)i * size - 2, NrOfBlocks * size - 1, 0), DirectX::XMFLOAT3(1, 0, 0) }));
+        vertecies.push_back(VoxelVertecies({ DirectX::XMFLOAT3((float)i * size - 2, NrOfBlocks * size - 1, NrOfBlocks * size - 1), DirectX::XMFLOAT3(1, 0, 0) }));
+    }
+    for (int i = 1; i < NrOfBlocks + 1; i++)
     {
         indecies.push_back((uint32_t)vertecies.size() + 0);
         indecies.push_back((uint32_t)vertecies.size() + 1);
