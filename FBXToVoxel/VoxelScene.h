@@ -14,6 +14,8 @@ public:
 	void Render();
 	void RenderUI();
 private:
+	std::string InputFile;
+
 	static const uint32_t chunkSize = 256;
 	Model* voxelModels[NROFLOD];
 	Model* GetVoxelModel(const int size, const int NrOfBlocks);
@@ -29,4 +31,8 @@ private:
 	TextureHeap translationTextureHeapUAV;
 
 	DirectX::XMFLOAT3 spinAround;
+	float distanceFromMiddle = 10;
+	float cameraHeight = 0;
+
+	uint32_t SponzaObject;
 };

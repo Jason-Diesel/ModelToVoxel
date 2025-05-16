@@ -35,17 +35,6 @@ uint getIndex(const uint x, const uint y, const uint z, const uint width, const 
 
 int getTextureID(uint indeciesID)
 {
-    //uint i = 0;
-    //while(i < voxelSize.w )
-    //{
-    //    if (indeciesID >= WhatTexture[i].x && indeciesID < WhatTexture[i].y)
-    //    {
-    //        return WhatTexture[i].w;
-    //    }
-    //    i++;
-    //}
-    //return 0;
-    
     uint left = 0;
     uint right = voxelSize.w - 1;
 

@@ -47,7 +47,7 @@ VertexOutput main(VertexInput input)
     }
     
     //calculate the rest
-    output.position.xyz = input.position.xyz + (output.normal * 0.01);
+    output.position.xyz = input.position.xyz; //+ (output.normal * 0.10);
     output.position = mul(float4(output.position.xyz, 1.0), mvp);
     
     float lod = materialIndex.y;

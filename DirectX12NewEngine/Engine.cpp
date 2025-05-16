@@ -87,7 +87,6 @@ void Engine::init()
 		};
 		sceneManager.setSceneHelperData(sceneHelperData);
 	}
-	//
 }
 
 void Engine::update()

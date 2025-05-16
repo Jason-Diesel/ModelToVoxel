@@ -12,6 +12,7 @@ public:
 	TextureHeap();
 	~TextureHeap();
 	void init(const uint32_t& nrOfDescriptors, ID3D12Device8* device);
+	void reset();
 
 	uint32_t MAXNROFSRV;
 	uint32_t createSRV(const uint32_t pos, TextureViewClass* texture, ID3D12Device8* device, int numberOfMips = 1);

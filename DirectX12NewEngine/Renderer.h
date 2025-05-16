@@ -24,6 +24,8 @@ public:
 	void render(Model* model);
 	void render(Mesh& mesh);
 
+	void renderNrOfMeshes(Object* object, uint32_t nrOfMeshes);
+
 	void setCurrentCamera(Camera* camera);
 	const bool isMakingShadows();
 private:

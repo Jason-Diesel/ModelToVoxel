@@ -1,5 +1,4 @@
 #include "VoxelScene.h"
-//#include "VoxelShaderClass.h"
 #include "SpecialVoxelShader.h"
 #include "ModelToVoxel.h"
 #include "TextureChanges.h"
@@ -12,6 +11,9 @@ VoxelScene::VoxelScene()
 
 VoxelScene::~VoxelScene()
 {
+    delete shaderPtrForVoxel;
+    delete shaderPtrForShadowVoxel;
+    
     for (int i = 0; i < NROFLOD; i++)
     {
         delete voxelModels[i];
@@ -28,6 +30,8 @@ VoxelScene::~VoxelScene()
 
 void VoxelScene::Start()
 {
+    //change this some how
+    //static_assert(chunkSize >= (8 << (NROFLOD - 1)), "chunkSize too small: Dispatch group size would be zero.");
     std::vector<MaterialDescription> once = { 
         MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV),
         MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV)
@@ -58,49 +62,18 @@ void VoxelScene::Start()
     once[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
     voxelMinimizerComputeShader = shaderHandler->createShader(0, once, "ComputeVoxelMinimizer.cso");
 
-
-    Light* testLight = lights->addLight(
-        LightType::PointLight_E, DirectX::XMFLOAT3(0, 20, 0)
-    );
     Light* testLight2 = lights->addLight(
         LightType::SpotLight_E, DirectX::XMFLOAT3(0, 20, 0)
     );
-    testLight->setColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f));
-    testLight2->setShadowSoftNess(2);
+    testLight2->setShadowSoftNess(1);
 
-    imguiHandler->addLight(lights->getLight(0));
     imguiHandler->addLight(lights->getLight(1));
 
     uint32_t size = chunkSize;
     for (uint32_t i = 0; i < NROFLOD; i++)
     {
-        voxelModels[i] = GetVoxelModel(1 << i, chunkSize >> i);
+        voxelModels[i] = GetVoxelModel(1 << (i), chunkSize >> (i));
     }
-
-    //Model* Sponza = this->fileReader->readModel("../Models/Sponza.obj");
-    //uint32_t SponzaObj = objectManager.createAnObject();
-    //objectManager.getObject(SponzaObj)->addComponent(Sponza);
-    //objectManager.getObject(SponzaObj)->setScale(DirectX::XMFLOAT3(0.3, 0.3, 0.3));
-
-    Model* CameraModel = this->fileReader->readModel("../Models/Camera.fbx");
-    LightObject = objectManager.createAnObject();
-    objectManager.getObject(LightObject)->addComponent(CameraModel);
-    LightObject2 = objectManager.createAnObject();
-    objectManager.getObject(LightObject2)->addComponent(CameraModel);
-
-    Model* PlaneModel = this->fileReader->readModel("../Models/Plane.fbx");
-    uint32_t plane = objectManager.createAnObject();
-    objectManager.getObject(plane)->addComponent(PlaneModel);
-    objectManager.getObject(plane)->setPosition(DirectX::XMFLOAT3( -1, -1, -1));
-
-    std::vector<uint32_t> shadowTex;
-    shadowTex.push_back(1);
-    DefaultMaterialData AAAA;
-    AAAA.ka = DirectX::XMFLOAT4(1, 1, 1, 1);
-    Material* ShadowMaterial = new Material(gfx, shadowTex, MaterialType::DIFFUSE_TEXTURE, sizeof(DefaultMaterialData), &AAAA);
-
-    PlaneModel->subMeshes[0].material = ShadowMaterial;
-
 }
 
 void VoxelScene::Update(const float& dt)
@@ -143,34 +116,33 @@ void VoxelScene::Update(const float& dt)
         (float)mouse->getDeltaPos().y * mouse->getSense(),
         0)
     );
-    objectManager.getObject(LightObject)->setPosition(lights->getLight(0)->getPosition());
-
-    objectManager.getObject(LightObject2)->setPosition(lights->getLight(1)->getPosition());
-    objectManager.getObject(LightObject2)->setRotation(lights->getLight(1)->getRotation());
 
     if (keyboard->isKeyPressed('C')) {
-        //camera.setPosition(lights->getLight(1)->getPosition());
-        //camera.setRotation(lights->getLight(1)->getRotation());
-        lights->getLight(1)->setPosition(camera.getPostion());
-        lights->getLight(1)->setRotation(camera.getRotation());
+        lights->getLight(0)->setPosition(camera.getPostion());
+        lights->getLight(0)->setRotation(camera.getRotation());
     }
+    //Spin around
+    if (keyboard->isKeyPressed('M'))
+    {
+        static float r = 0;
+        static const float speed = 1;
+        r += dt * speed;
 
-    
+        DirectX::XMFLOAT3 cameraPos = this->camera.getPostion();
 
-    //Rotate Chunks
+        float x = spinAround.x + distanceFromMiddle * sinf(r);
+        float z = spinAround.z + distanceFromMiddle * cosf(r);
+        float y = spinAround.y + cameraHeight;
 
+        // Update camera position
+        camera.setPosition(DirectX::XMFLOAT3(x, y, z));
+
+        this->camera.lookAt(spinAround);
+    }
 }
 
 void VoxelScene::Render()
 {
-    //const std::vector<Object*> allObjects = objectManager.getAllObjects();
-    //for (int i = 0; i < allObjects.size(); i++)
-    //{
-    //    renderer->render(allObjects[i]);
-    //}
-    //renderer->render(allObjects[0]);
-    //VoxelPosition//SET DESCRIPTOR HEAP
-    //shaderHandler->setShader(voxelShader);
 
     //Sort Chunks; based on all certain camera
     std::vector<std::pair<float, Chunk*>> chunkWithDistace;
@@ -211,9 +183,9 @@ void VoxelScene::Render()
 
         //LOD
         int lod = (int)log2(distanceBetweenCameraAndChunkMiddle / (chunkSize * chunkSize * 8));
-        //int lod = distanceBetweenCameraAndChunkMiddle / sqrt(chunkSize * chunkSize * chunkSize);//Need to find something better here
         lod = std::clamp(lod, 0, NROFLOD - 1);
         it.second->setLOD(lod);
+
 
         CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
         srvGpuHandle.Offset(it.second->cbData.bindlessTextureIndex.x, descriptorSize);
@@ -221,45 +193,41 @@ void VoxelScene::Render()
 
         it.second->setConstantBuffers(gfx);//SET many times
         renderer->render(it.second, voxelModels[it.second->getLod()]);//Set many times
+        
     }
-
-    //for (auto& itx : chunks) {
-    //    for (auto& ity : itx.second) {
-    //        for (auto& itz : ity.second) {
-    //            const DirectX::XMFLOAT3 &chunkPos = itz.second->getPosition();
-    //            const DirectX::XMFLOAT3 middleChunkPosition = DirectX::XMFLOAT3(chunkPos.x + (chunkSize / 2), chunkPos.y + (chunkSize / 2), chunkPos.z + (chunkSize / 2));
-    //            float distanceBetweenCameraAndChunkMiddle = HF::magDistance(this->camera.getPostion(), middleChunkPosition);
-    //            //float distanceBetweenCameraAndChunkMiddle = HF::distance(DirectX::XMFLOAT3(0,0,0), middleChunkPosition);
-    //
-    //            //LOD
-    //            int lod = (int)log2(distanceBetweenCameraAndChunkMiddle / (chunkSize * chunkSize * 8));
-    //
-    //            //int lod = distanceBetweenCameraAndChunkMiddle / sqrt(chunkSize * chunkSize * chunkSize);//Need to find something better here
-    //            lod = std::clamp(lod, 0, NROFLOD - 1);
-    //            itz.second->setLOD(lod);
-    //
-    //            CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
-    //            srvGpuHandle.Offset(itz.second->cbData.bindlessTextureIndex.x, descriptorSize);
-    //            gfx->getCommandList()->SetGraphicsRootDescriptorTable(4, srvGpuHandle);
-    //
-    //            itz.second->setConstantBuffers(gfx);//SET many times
-    //            renderer->render(itz.second, voxelModels[itz.second->getLod()]);//Set many times
-    //        }
-    //    }
-    //}
 }
 
 void VoxelScene::RenderUI()
 {
     if (ImGui::Begin("Start"))
     {
-        if (ImGui::Button("Start"))
+        if (ImGui::Button("Choose File"))
         {
-            const float VoxelSize = 2;
+            OpenFileDialog(InputFile);
+        }
+        if (ImGui::Button("Load Model"))
+        { 
+            //Delete old Model if it exist
+            for (auto& x : chunks)
+            {
+                for (auto& y : x.second)
+                {
+                    for (auto& z : y.second)
+                    {
+                        delete z.second;
+                    }
+                    y.second.clear();
+                }
+                x.second.clear();
+            }
+            chunks.clear();
+            translationTextureHeapUAV.reset();
+
+            const float VoxelSize = 1;
             //load VoxelModel
             DirectX::XMUINT3 sizes;
             Voxel* voxelGrid = nullptr;
-            ReadVoxelFromFile(sizes, voxelGrid, "../Models/VoxelTest.vox");
+            ReadVoxelFromFile(sizes, voxelGrid, InputFile);
 
             if (voxelGrid == nullptr)
             {
@@ -314,6 +282,8 @@ void VoxelScene::RenderUI()
                     }
                 }
             }
+            delete[] voxelGrid;
+
             const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
             shaderHandler->setComputeShader(voxelMinimizerComputeShader);
 
@@ -419,11 +389,12 @@ void VoxelScene::RenderUI()
                 delete convertedData[i];
             }
             delete[] convertedData;
+            
         }   
         if (ImGui::Button("Testing Box"))
         {   
             DirectX::XMUINT3 thesizes = { chunkSize, chunkSize, chunkSize };
-            Voxel* voxelGrid = new Voxel[chunkSize * chunkSize * chunkSize];
+            Voxel* voxelGrid = new Voxel[(chunkSize  * chunkSize * chunkSize)];
             int i = 0;
             
             for (int x = 0; x < chunkSize; x++) {
@@ -476,7 +447,7 @@ void VoxelScene::RenderUI()
                 }
             }
             
-            int nrOfChunks = 2;
+            int nrOfChunks = 1;
             for (int i = 0; i < nrOfChunks; i++)
             {
                 TextureViewClass* voxelTextureData = createTexture(
@@ -493,8 +464,8 @@ void VoxelScene::RenderUI()
             
                 //theChunk->addComponent(voxelModels);
                 theChunk->setPosition(DirectX::XMFLOAT3(-200,-200,-200));
-            
-                theChunk->cbData.bindlessTextureIndex.x = gfx->getTextureHeap().createSRV(voxelTextureData, gfx);
+
+                theChunk->setTexturePointerForLod(gfx->getTextureHeap().createSRV(voxelTextureData, gfx), 0);
                 theChunk->updateConstantBuffers();
             }
             
@@ -504,6 +475,9 @@ void VoxelScene::RenderUI()
         {
             sceneManager->setScene(new ModelToVoxel());
         }
+
+        ImGui::SliderFloat("DistanceFromMiddle", &distanceFromMiddle, 0, 400);
+        ImGui::SliderFloat("CameraHeight", &cameraHeight, 0, 200);
     }
     
     ImGui::End();
@@ -520,21 +494,7 @@ Model* VoxelScene::GetVoxelModel(const int size, const int NrOfBlocks)
     std::vector<uint32_t> indecies;
     
     //For X
-    for (int i = 0; i < 1; i++)
-    {
-        indecies.push_back((uint32_t)vertecies.size() + 0);
-        indecies.push_back((uint32_t)vertecies.size() + 1);
-        indecies.push_back((uint32_t)vertecies.size() + 2);
-        indecies.push_back((uint32_t)vertecies.size() + 1);
-        indecies.push_back((uint32_t)vertecies.size() + 3);
-        indecies.push_back((uint32_t)vertecies.size() + 2);
-
-        vertecies.push_back(VoxelVertecies({ DirectX::XMFLOAT3((float)i * size - 2, 0, 0), DirectX::XMFLOAT3(1, 0, 0) }));
-        vertecies.push_back(VoxelVertecies({ DirectX::XMFLOAT3((float)i * size - 2, 0, NrOfBlocks * size - 1), DirectX::XMFLOAT3(1, 0, 0) }));
-        vertecies.push_back(VoxelVertecies({ DirectX::XMFLOAT3((float)i * size - 2, NrOfBlocks * size - 1, 0), DirectX::XMFLOAT3(1, 0, 0) }));
-        vertecies.push_back(VoxelVertecies({ DirectX::XMFLOAT3((float)i * size - 2, NrOfBlocks * size - 1, NrOfBlocks * size - 1), DirectX::XMFLOAT3(1, 0, 0) }));
-    }
-    for (int i = 1; i < NrOfBlocks + 1; i++)
+    for (int i = 0; i < NrOfBlocks + 1; i++)
     {
         indecies.push_back((uint32_t)vertecies.size() + 0);
         indecies.push_back((uint32_t)vertecies.size() + 1);

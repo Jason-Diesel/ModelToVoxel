@@ -1,16 +1,15 @@
 #include "Scene.h"
 
-//#include "ShaderHandler.h"
-//#include "SceneManager.h"
-//#include "WindowClass.h"
-
 Scene::Scene()
 {
 }
 
 Scene::~Scene()
 {
-	lights->reset();
+	if (lights != nullptr)
+	{
+		lights->reset();
+	}
 }
 
 void Scene::addEngineData(SceneHelperData& sceneHelperData)

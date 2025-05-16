@@ -8,6 +8,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+
 //STD::MAX/MIN WILL NOT WORK, FINE I DO IT MYSELF
 #define max(x, y) x > y ? x : y
 #define min(x, y) x < y ? x : y
@@ -48,15 +49,6 @@ ModelToVoxel::~ModelToVoxel()
 
 void ModelToVoxel::Start()
 {
-    objectManager.createAnObject();
-
-
-    //uint32_t data = 5;
-    //rbBuffer = new ReadBackBuffer(
-    //    &data, 
-    //    sizeof(uint32_t),
-    //    gfx
-    //);
     std::vector<MaterialDescription> ForComputeVoxels;
     ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));//VoxelGrid
     ForComputeVoxels.push_back(MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));//Vertecies
@@ -66,10 +58,6 @@ void ModelToVoxel::Start()
 
     computeVoxelsShader = shaderHandler->createShader(1, ForComputeVoxels, "ComputeVoxels.cso");
     rbBufferHeap.init(300, gfx->getDevice());
-    
-    //rbBufferHeap.createUAV(rbBuffer->getUAVResource(), gfx->getDevice());
-
-    //getBox();
 }
 
 void ModelToVoxel::Update(const float& dt)
@@ -125,12 +113,15 @@ void ModelToVoxel::Render()
 void OpenFileDialog(std::string& fileName) {
     wchar_t  filename[MAX_PATH] = { 0 };
 
+    wchar_t originalDir[MAX_PATH];
+    GetCurrentDirectory(MAX_PATH, originalDir);
+
     OPENFILENAMEW ofn;
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = nullptr;
     ofn.lpstrFilter = L"All Files\0*.*\0Text Files\0*.TXT\0";
-    ofn.lpstrFile = filename;  // Now it's correctly using a wchar_t buffer
+    ofn.lpstrFile = filename; 
     ofn.nMaxFile = MAX_PATH;
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 
@@ -139,7 +130,36 @@ void OpenFileDialog(std::string& fileName) {
         std::wstring wFilename(filename);
         fileName = std::string(wFilename.begin(), wFilename.end());
     }
+
+    SetCurrentDirectory(originalDir);
 }
+
+void ShowSaveFileDialog(std::string& fileName)
+{
+    wchar_t originalDir[MAX_PATH];
+    GetCurrentDirectory(MAX_PATH, originalDir);
+
+    // Buffer to hold the file path
+    wchar_t filePath[MAX_PATH] = { 0 };
+
+    OPENFILENAME ofn = { 0 };
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = nullptr;  // Set to your window handle if you have one
+    ofn.lpstrFilter = L"Text Files (*.vox)\0*.vox\0All Files (*.*)\0*.*\0";
+    ofn.lpstrFile = filePath;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+    ofn.lpstrDefExt = L"vox";
+
+    if (GetSaveFileName(&ofn))
+    {
+        std::wstring wFilename(filePath);
+        fileName = std::string(wFilename.begin(), wFilename.end());
+    }
+
+    SetCurrentDirectory(originalDir);
+}
+
 
 void ModelToVoxel::RenderUI()
 {
@@ -171,7 +191,7 @@ void ModelToVoxel::RenderUI()
         WriteVoxelToFile(
             sizes,
             voxels,
-            "VoxelTest.vox"
+            outPutFileName
         );
         delete[] voxels;
         information += "\nSucessfully created VoxelModel";
@@ -179,11 +199,14 @@ void ModelToVoxel::RenderUI()
 
     if (ImGui::Begin("Voxel"))
     {
-
         ImGui::InputInt3("Voxel Grid Size", (int*)&sizes);
-        if (ImGui::Button("Open File Dialog"))
+        if (ImGui::Button("File To Voxolize"))
         {
-            OpenFileDialog(this->fileName);
+            OpenFileDialog(this->inputFileName);
+        }
+        if (ImGui::Button("Save to path..."))
+        {
+            ShowSaveFileDialog(this->outPutFileName);
         }
         if (ImGui::Button("Start Creating VoxelModel GPU"))
         {
@@ -201,7 +224,7 @@ void ModelToVoxel::RenderUI()
                 WriteVoxelToFile(
                     sizes,
                     voxels,
-                    "VoxelTest.vox"
+                    outPutFileName
                 );
                 delete[] voxels;
                 information += "\nSucessfully created VoxelModel";
@@ -213,8 +236,8 @@ void ModelToVoxel::RenderUI()
             sceneManager->setScene(new VoxelScene());
         }
         {
-            std::string fileInfo = "Choosen File : " + fileName;
-            if (fileName == "")
+            std::string fileInfo = "Choosen File : " + inputFileName;
+            if (inputFileName == "")
             {
                 fileInfo = "No File Choosen";
             }
@@ -460,17 +483,17 @@ void ModelToVoxel::LoadModelForGPU(
 )
 {
     struct stat buffer;
-    if (!(stat(this->fileName.c_str(), &buffer) == 0)) {
+    if (!(stat(this->inputFileName.c_str(), &buffer) == 0)) {
         return;
     }
 
     Assimp::Importer importer;
-    const aiScene* pScene = importer.ReadFile(fileName.c_str(),
+    const aiScene* pScene = importer.ReadFile(inputFileName.c_str(),
         aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs
     );
 
     if (!pScene) {
-        std::wcout << L"couldn't find " << fileName.c_str() << " in directory: " << HF::getCurrentDirectory() << std::endl;
+        std::wcout << L"couldn't find " << inputFileName.c_str() << " in directory: " << HF::getCurrentDirectory() << std::endl;
         printf("Error");
         return;
     }
@@ -556,19 +579,26 @@ void ModelToVoxel::LoadModelForGPU(
 void ModelToVoxel::LoadModelForCPU(VoxelModel& theReturn, ResourceManager* rm)
 {
     struct stat buffer;
-    if (!(stat(this->fileName.c_str(), &buffer) == 0)) {
+    if (!(stat(this->inputFileName.c_str(), &buffer) == 0)) {
         information = "Error : Can't find model";
         return;
     }
+
+    const std::string fileExtension = inputFileName.substr(inputFileName.find_last_of(".") + 1);
+    std::string fileDiectory = inputFileName.substr(0, inputFileName.find_last_of("\\/"));
+
     information += "\n reading from assimp";
+
+    auto start1 = std::chrono::steady_clock::now();
+
     Assimp::Importer importer;
-    const aiScene* pScene = importer.ReadFile(fileName.c_str(),
-        aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs
+    const aiScene* pScene = importer.ReadFile(inputFileName.c_str(),
+        aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs | aiProcess_PreTransformVertices
     );
 
     if (!pScene) {
         information += "Error Couldn't find file";
-        std::wcout << L"couldn't find " << fileName.c_str() << " in directory: " << HF::getCurrentDirectory() << std::endl;
+        std::wcout << L"couldn't find " << inputFileName.c_str() << " in directory: " << HF::getCurrentDirectory() << std::endl;
         printf("Error");
         return;
     }
@@ -590,7 +620,14 @@ void ModelToVoxel::LoadModelForCPU(VoxelModel& theReturn, ResourceManager* rm)
 
             if (path.C_Str()[0] != 'C' && path.C_Str()[1] != ':')
             {
-                pathString = "../";
+                if (fileExtension == "obj")
+                {
+                    pathString += fileDiectory + "/";
+                }
+                else {
+                    pathString += fileDiectory + "/";
+                }
+                
             }
 
             pathString += path.C_Str();
@@ -635,6 +672,7 @@ void ModelToVoxel::LoadModelForCPU(VoxelModel& theReturn, ResourceManager* rm)
         }
         theReturn.meshes[m].materialIndex = mesh->mMaterialIndex;
     }
+    auto end1 = std::chrono::steady_clock::now();
 }
 
 void ModelToVoxel::TriangleLoading(
@@ -664,7 +702,10 @@ void ModelToVoxel::TriangleLoading(
             const DirectX::XMFLOAT3 vertexPos = vertecies[j]->position;
 
             //DO THIS WITH VECTORS INSTEAD OF XMINT3
-            DirectX::XMFLOAT3 positionInGrid = div(sub(vertexPos, minSizes), voxelSize);
+            DirectX::XMFLOAT3 positionInGrid = div(
+                sub(vertexPos, minSizes), 
+                voxelSize
+            );
             voxelPosition[j] = F3ToI3(positionInGrid);
         }
 
@@ -835,9 +876,11 @@ Voxel* ModelToVoxel::CreateVoxelModelCPU() {
     
     VoxelModel model;
 
-    
+    auto _TimeForLoadModelStart = std::chrono::steady_clock::now();
     LoadModelForCPU(model, rm);
-    auto _TimeStart = std::chrono::steady_clock::now();
+    auto _TimeForLoadModelEnd = std::chrono::steady_clock::now();
+
+    auto _TimeForLoadVoxelStart = std::chrono::steady_clock::now();
 
     if (model.meshes.size() == 0)
     {
@@ -850,7 +893,9 @@ Voxel* ModelToVoxel::CreateVoxelModelCPU() {
         float ySize = boundingBox[1].y - boundingBox[0].y;
         float zSize = boundingBox[1].z - boundingBox[0].z;
 
-        float scaleFactor = min(min(sizes.x / xSize, sizes.y / ySize), sizes.z / zSize );
+        float scaleFactor = min(sizes.x / xSize, sizes.y / ySize);
+        scaleFactor = min(scaleFactor, sizes.z / zSize );
+        //float scaleFactor = max(max(sizes.x / xSize, sizes.y / ySize), sizes.z / zSize );
         sizes.x = std::floor((scaleFactor + 0.00001) * xSize);
         sizes.y = std::floor((scaleFactor + 0.00001) * ySize);
         sizes.z = std::floor((scaleFactor + 0.00001) * zSize);
@@ -884,27 +929,18 @@ Voxel* ModelToVoxel::CreateVoxelModelCPU() {
     {
         threads[i].join();
     }
-    
-    //One thread
-    //for (uint32_t m = 0; m < model.meshes.size(); m++)
-    //{
-    //    TriangleLoading(
-    //        model,
-    //        0,
-    //        1,
-    //        m,
-    //        voxelSize,
-    //        minSizes,
-    //        voxelGrid
-    //    );
-    //}
 
-    auto _TimeEnd = std::chrono::steady_clock::now();
+    auto _TimeForLoadVoxelEnd = std::chrono::steady_clock::now();
 
-    std::chrono::duration<float> duration = _TimeEnd - _TimeStart;
-    float TotalTime = duration.count();
+    std::chrono::duration<float> durationVoxel = _TimeForLoadVoxelEnd - _TimeForLoadVoxelStart;
+    std::chrono::duration<float> durationModel = _TimeForLoadModelEnd - _TimeForLoadModelStart;
+    float VoxelTime = durationVoxel.count();
+    float ModelTime = durationModel.count();
+    float TotalTime = VoxelTime + ModelTime;
 
-    information += "CPU time took " + std::to_string(TotalTime) + " Time";
+    information += "CPU Total time took " + std::to_string(TotalTime) + " Seconds\n";
+    information += "Loading Model With assimp took " + std::to_string(ModelTime) + " Seconds\n";
+    information += "To voxify the model took " + std::to_string(VoxelTime) + " Seconds\n";
 
     return voxelGrid;
 }
@@ -919,26 +955,26 @@ void ModelToVoxel::lineToLine(
     Voxel* voxelGrid
 )
 {
-    DirectX::XMINT3 distance = DirectX::XMINT3(
+    const DirectX::XMINT3 distance = DirectX::XMINT3(
         endVoxel.x - startVoxel.x,
         endVoxel.y - startVoxel.y,
         endVoxel.z - startVoxel.z
     );
 
-    DirectX::XMINT3 stepDirection = DirectX::XMINT3(
+    const DirectX::XMINT3 stepDirection = DirectX::XMINT3(
         (distance.x > 0) ? 1 : distance.x < 0 ? -1 : 0,
         (distance.y > 0) ? 1 : distance.y < 0 ? -1 : 0,
         (distance.z > 0) ? 1 : distance.z < 0 ? -1 : 0
     );
 
     float l = sqrt(distance.x * distance.x + distance.y * distance.y + distance.z * distance.z);
-    DirectX::XMFLOAT3 lineDirection = DirectX::XMFLOAT3(
+    const DirectX::XMFLOAT3 lineDirection = DirectX::XMFLOAT3(
         distance.x / l,
         distance.y / l,
         distance.z / l
     );
 
-    DirectX::XMFLOAT3 stepLength = DirectX::XMFLOAT3(
+    const DirectX::XMFLOAT3 stepLength = DirectX::XMFLOAT3(
         stepDirection.x != 0 ? std::abs(1.0f / lineDirection.x) : D3D12_FLOAT32_MAX,
         stepDirection.y != 0 ? std::abs(1.0f / lineDirection.y) : D3D12_FLOAT32_MAX,
         stepDirection.z != 0 ? std::abs(1.0f / lineDirection.z) : D3D12_FLOAT32_MAX
@@ -964,6 +1000,17 @@ void ModelToVoxel::lineToLine(
         else {
             traverseVoxel.z += stepDirection.z;
             tMax.z += stepLength.z;
+        }
+
+        //Check here if we have passed the line
+        const bool passed[3] = {
+            (distance.x > 0 && traverseVoxel.x > endVoxel.x) || (distance.x < 0 && traverseVoxel.x < endVoxel.x),
+            (distance.y > 0 && traverseVoxel.y > endVoxel.y) || (distance.y < 0 && traverseVoxel.y < endVoxel.y),
+            (distance.z > 0 && traverseVoxel.z > endVoxel.z) || (distance.z < 0 && traverseVoxel.z < endVoxel.z)
+        };
+        if (passed[0] || passed[1] || passed[2])
+        {
+            break;
         }
 
         //GET WITH UV SHIT

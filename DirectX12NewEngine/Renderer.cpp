@@ -91,6 +91,25 @@ void Renderer::render(Mesh& mesh)
 	gfx->getCommandList()->DrawIndexedInstanced(mesh.nrOfIndecies, 1, 0, 0, 0);
 }
 
+void Renderer::renderNrOfMeshes(Object* object, uint32_t nrOfMeshes)
+{
+	Model* model = object->getComponent<Model>();
+	if (model == nullptr) { return; }
+
+	object->setConstantBuffer(gfx);
+	if (model->ModelType == Model::_AnimatedModel)
+	{
+		AnimationComponent* animatedComponent = object->getComponent<AnimationComponent>();
+		animatedComponent->setPose((AnimatedModel*)model);
+		gfx->getCommandList()->SetGraphicsRootConstantBufferView(5, animatedComponent->skeletalConstantBuffer.constantBuffer->GetGPUVirtualAddress());
+	}
+
+	for (uint32_t i = 0; i < model->nrOfSubMeshes && i < nrOfMeshes; i++)
+	{
+		render(model->subMeshes[i]);
+	}
+}
+
 void Renderer::setCurrentCamera(Camera* camera)
 {
 	currentCamera = camera;

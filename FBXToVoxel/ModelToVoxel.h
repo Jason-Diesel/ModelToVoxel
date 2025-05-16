@@ -44,7 +44,8 @@ private:
 
 	Model* StartModel;
 
-	std::string fileName = "";
+	std::string inputFileName = "";
+	std::string outPutFileName = "../Models/VoxelTest.vox";
 	std::string information = "";
 	DirectX::XMUINT3 sizes = DirectX::XMUINT3(200, 200, 200);
 	DirectX::XMFLOAT3 boundingBox[2]; //0 = lowest, 1 = highest
@@ -93,3 +94,5 @@ private:
 		DirectX::XMFLOAT4 voxelSize;
 	}creatingVoxelModelDataData;
 };
+
+void OpenFileDialog(std::string& fileName);

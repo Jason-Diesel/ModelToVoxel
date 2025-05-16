@@ -10,15 +10,8 @@ TextureHeap::TextureHeap():
 
 TextureHeap::~TextureHeap()
 {
-	//TODO : only delete shadows?(or delete shadows in rm)
-	//for (int i = 0; i < MAXNROFSRV; i++)
-	//{
-	//	if (TextureViewptrs[i] != nullptr)
-	//	{
-	//		delete TextureViewptrs[i];
-	//	}
-	//}
 	delete[] TextureViewptrs;
+	delete UAVThatDoesntExist;
 	//srvHeap->Release();//Shall I not release this?
 }
 
@@ -35,6 +28,16 @@ void TextureHeap::init(const uint32_t& nrOfDescriptors, ID3D12Device8* device)
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
 	device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&srvHeap));
+}
+
+void TextureHeap::reset() 
+{
+	nrOfCurrentTextures = 0;
+	texturePointer.clear();
+	for (uint32_t i = 0; i < MAXNROFSRV; i++)
+	{
+		TextureViewptrs[i] = nullptr;
+	}
 }
 
 uint32_t TextureHeap::createSRV(const uint32_t pos, TextureViewClass* texture, ID3D12Device8* device, int numberOfMips)
