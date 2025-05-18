@@ -5,6 +5,8 @@
 #include <unordered_set>
 #include <thread>
 
+#include "SpecialVoxelShader.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -41,10 +43,13 @@ DirectX::XMINT3 F3ToI3(const DirectX::XMFLOAT3& a)
 
 ModelToVoxel::ModelToVoxel()
 {
+
 }
 
 ModelToVoxel::~ModelToVoxel()
 {
+    delete voxelModels;
+    delete shaderPtrForVoxel;
 }
 
 void ModelToVoxel::Start()
@@ -58,6 +63,23 @@ void ModelToVoxel::Start()
 
     computeVoxelsShader = shaderHandler->createShader(1, ForComputeVoxels, "ComputeVoxels.cso");
     rbBufferHeap.init(300, gfx->getDevice());
+
+    std::vector<MaterialDescription> once = {
+        MaterialDescription(1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV)
+    };
+    translationTextureHeapUAV.init(256, gfx->getDevice());
+
+    shaderPtrForVoxel = new SpecialVoxelShader();
+    ((SpecialVoxelShader*)shaderPtrForVoxel)->init(
+        gfx->getDevice(),
+        0,
+        once,
+        gfx->getInputLayout(2),
+        "VoxelVertexShader.cso",
+        "VoxelPixelShaderNoLight.cso"
+    );
+
+    voxelModels = GetVoxelModel(1, chunkSize, gfx);
 }
 
 void ModelToVoxel::Update(const float& dt)
@@ -104,10 +126,43 @@ void ModelToVoxel::Update(const float& dt)
 
 void ModelToVoxel::Render()
 {
-    //if (doneShit)
-    //{
-    //    uint32_t* data = this->rbBuffer->getData<uint32_t>(gfx);
-    //}
+    if (renderer->isMakingShadows()) {
+        return;
+    }
+    //Sort Chunks; based on all certain camera
+    std::vector<std::pair<float, Chunk*>> chunkWithDistace;
+    for (const auto& x : chunks)
+    {
+        for (const auto& y : x.second)
+        {
+            for (const auto& z : y.second)
+            {
+                float magDistance = HF::magDistance(z.second->getPosition(), this->camera.getPostion());
+                chunkWithDistace.emplace_back(magDistance, z.second);
+            }
+        }
+    }
+    std::sort(chunkWithDistace.begin(), chunkWithDistace.end(), [](const std::pair<float, Chunk*>& a, const std::pair<float, Chunk*>& b)
+        {
+            return a.first < b.first;
+        });
+
+    const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    shaderHandler->setShader(*(Shader*)shaderPtrForVoxel);
+
+    for (auto& it : chunkWithDistace)
+    {
+        it.second->setLOD(0);
+
+        CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(gfx->getTextureHeap().getHeap()->GetGPUDescriptorHandleForHeapStart());
+        srvGpuHandle.Offset(it.second->cbData.bindlessTextureIndex.x, descriptorSize);
+        gfx->getCommandList()->SetGraphicsRootDescriptorTable(4, srvGpuHandle);
+
+        it.second->setConstantBuffers(gfx);
+        renderer->render(it.second, voxelModels);
+
+    }
 }
 
 void OpenFileDialog(std::string& fileName) {
@@ -197,8 +252,28 @@ void ModelToVoxel::RenderUI()
         information += "\nSucessfully created VoxelModel";
     }
 
+    static const int howManyFramesShouldStick = 10;
+    static int putCameraToViewAfterOneFrame = howManyFramesShouldStick + 1;
+    if (putCameraToViewAfterOneFrame < howManyFramesShouldStick)
+    {
+        putCameraToViewAfterOneFrame++;
+        float biggestSize = max(sizes.x, sizes.y);
+        biggestSize = max(biggestSize, sizes.z);
+
+        camera.setPosition(DirectX::XMFLOAT3(0, sizes.y / 2, biggestSize));
+        camera.lookAt(spinAround);
+    }
+
     if (ImGui::Begin("Voxel"))
     {
+        //Normal Information
+        ImGui::Text(
+            "Move with W,A,S,D and mouse\nChoose a 3D model to voxelize and then where to save it to\nand then press start creating VoxelModel CPU, (GPU is not recommended)\n"
+        );
+        ImGui::Text(
+            "Go the VoxelScene for better lightning on a voxel Model"
+        );
+
         ImGui::InputInt3("Voxel Grid Size", (int*)&sizes);
         if (ImGui::Button("File To Voxolize"))
         {
@@ -226,8 +301,10 @@ void ModelToVoxel::RenderUI()
                     voxels,
                     outPutFileName
                 );
+                information += "\n Writing to file " + outPutFileName;
+                createRenderingVoxelModel(voxels, sizes);
                 delete[] voxels;
-                information += "\nSucessfully created VoxelModel";
+                putCameraToViewAfterOneFrame = 0;
             }
             information += "\nSucessfully created VoxelModel";
         }
@@ -235,6 +312,7 @@ void ModelToVoxel::RenderUI()
         {
             sceneManager->setScene(new VoxelScene());
         }
+
         {
             std::string fileInfo = "Choosen File : " + inputFileName;
             if (inputFileName == "")
@@ -524,7 +602,6 @@ void ModelToVoxel::LoadModelForGPU(
             if (theReturn.texturesGPU[m] == nullptr)
             {
                 theReturn.texturesGPU[m] = createTexture(pathString, rm, gfx, 1);
-                //theReturn.texturesGPU[m] = createTextureWithWriteAccess(pathString, rm, gfx, 1);
                 rm->addResource(theReturn.texturesGPU[m], "VoxelTextures__" + pathString);
             }
         }
@@ -569,11 +646,133 @@ void ModelToVoxel::LoadModelForGPU(
             theReturn.meshes[0].indecies.push_back(mesh->mFaces[i].mIndices[2] + vertexOffset);
         }
         
-        //TODO: Take care of soon
-        //theReturn.meshes[m].materialIndex = mesh->mMaterialIndex;
-        
         vertexOffset += mesh->mNumVertices;
     }
+}
+
+void ModelToVoxel::createRenderingVoxelModel(const Voxel* voxels, const DirectX::XMUINT3& sizes)
+{
+    for (auto& x : chunks)
+    {
+        for (auto& y : x.second)
+        {
+            for (auto& z : y.second)
+            {
+                delete z.second;
+            }
+            y.second.clear();
+        }
+        x.second.clear();
+    }
+    chunks.clear();
+    translationTextureHeapUAV.reset();
+
+    const float VoxelSize = 1;
+
+    if (voxels == nullptr)
+    {
+        ImGui::End();
+        return;
+    }
+
+    spinAround = DirectX::XMFLOAT3(
+        (sizes.x / 2) * VoxelSize,
+        (sizes.y / 3) * VoxelSize,
+        (sizes.z / 2) * VoxelSize);
+
+    //convertData
+    DirectX::XMUINT3 nrOfChunksInDirection;
+    nrOfChunksInDirection.x = (sizes.x / chunkSize) + 1;
+    nrOfChunksInDirection.y = (sizes.y / chunkSize) + 1;
+    nrOfChunksInDirection.z = (sizes.z / chunkSize) + 1;
+
+    uint32_t nrOfChunks = nrOfChunksInDirection.x * nrOfChunksInDirection.y * nrOfChunksInDirection.z;
+
+    uint32_t** convertedData = new uint32_t * [nrOfChunks];
+    for (uint32_t i = 0; i < nrOfChunks; i++)
+    {
+        convertedData[i] = new uint32_t[chunkSize * chunkSize * chunkSize]();
+    }
+    for (uint32_t z = 0; z < sizes.z; z++) {
+        for (uint32_t y = 0; y < sizes.y; y++) {
+            for (uint32_t x = 0; x < sizes.x; x++) {
+                uint32_t chunkX = x / chunkSize;
+                uint32_t chunkY = y / chunkSize;
+                uint32_t chunkZ = z / chunkSize;
+
+                uint32_t chunkIndex =
+                    chunkX +
+                    chunkY * nrOfChunksInDirection.x +
+                    chunkZ * nrOfChunksInDirection.x * nrOfChunksInDirection.y;
+
+                uint32_t localX = x % chunkSize;
+                uint32_t localY = y % chunkSize;
+                uint32_t localZ = z % chunkSize;
+
+                uint32_t localIndex =
+                    localX +
+                    localY * chunkSize +
+                    localZ * chunkSize * chunkSize;
+
+                convertedData[chunkIndex][localIndex] =
+                    (voxels[z * sizes.x * sizes.y + y * sizes.x + x].rgb[0] << 16) |
+                    (voxels[z * sizes.x * sizes.y + y * sizes.x + x].rgb[1] << 8) |
+                    (voxels[z * sizes.x * sizes.y + y * sizes.x + x].rgb[2]);
+
+            }
+        }
+    }
+
+    const UINT descriptorSize = gfx->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    Chunk** theChunks = new Chunk * [nrOfChunks];
+    TextureViewClass** voxelTextureData = new TextureViewClass * [nrOfChunks];
+
+    for (int c = 0; c < nrOfChunks; c++)
+    {
+        voxelTextureData[c] = createTexture(
+            (void*)convertedData[c],
+            sizeof(uint32_t),
+            DirectX::XMINT3(chunkSize, chunkSize, chunkSize),
+            rm,
+            gfx,
+            DXGI_FORMAT_R32_UINT
+        );
+
+        int chunkX = c % nrOfChunksInDirection.x;
+        int chunkY = (c / nrOfChunksInDirection.x) % nrOfChunksInDirection.y;
+        int chunkZ = c / (nrOfChunksInDirection.x * nrOfChunksInDirection.y);
+
+        theChunks[c] = new Chunk(gfx);
+        chunks[chunkX][chunkY][chunkZ] = theChunks[c];
+
+        theChunks[c]->setPosition(DirectX::XMFLOAT3(chunkX * chunkSize * VoxelSize,
+            chunkY * chunkSize * VoxelSize,
+            chunkZ * chunkSize * VoxelSize));
+        theChunks[c]->setScale(DirectX::XMFLOAT3(VoxelSize,
+            VoxelSize,
+            VoxelSize
+        ));
+
+        uint32_t UAV;
+        UAV = translationTextureHeapUAV.createSRV(voxelTextureData[c], gfx);
+    }
+
+    int i = 0;
+    for (uint32_t c = 0; c < nrOfChunks; c++)
+    {
+            theChunks[c]->setTexturePointerForLod(
+                gfx->getTextureHeap().createSRV(voxelTextureData[i++], gfx),
+                0
+            );
+    }
+    delete[] voxelTextureData;
+    delete[] theChunks;
+    for (int i = 0; i < nrOfChunks; i++)
+    {
+        delete convertedData[i];
+    }
+    delete[] convertedData;
 }
 
 void ModelToVoxel::LoadModelForCPU(VoxelModel& theReturn, ResourceManager* rm)
@@ -618,25 +817,24 @@ void ModelToVoxel::LoadModelForCPU(VoxelModel& theReturn, ResourceManager* rm)
         {
             std::string pathString = "";
 
-            if (path.C_Str()[0] != 'C' && path.C_Str()[1] != ':')
+            if (path.C_Str()[1] != ':')//Check if it's an absolute path
             {
-                if (fileExtension == "obj")
-                {
-                    pathString += fileDiectory + "/";
-                }
-                else {
-                    pathString += fileDiectory + "/";
-                }
-                
+                pathString += fileDiectory + "/";
             }
 
             pathString += path.C_Str();
 
-            theReturn.texturesCPU[m] = rm->getResource<TextureForVoxels>("VoxelTextures__" + pathString);
+            theReturn.texturesCPU[m] = rm->getResource<TextureForVoxels>("CPUVoxelTextures__" + pathString);
             if (theReturn.texturesCPU[m] == nullptr)
             {
                 theReturn.texturesCPU[m] = LoadTexture(pathString);
-                rm->addResource(theReturn.texturesCPU[m], "VoxelTextures__" + pathString);
+                if (theReturn.texturesCPU[m] != nullptr)
+                {
+                    rm->addResource(theReturn.texturesCPU[m], "CPUVoxelTextures__" + pathString);
+                }
+                else {
+                    information += "\n Warning : couldn't find the Texture : " + pathString;
+                }
             }
         }
     }
@@ -850,12 +1048,9 @@ DirectX::XMUINT4 ModelToVoxel::ColorFromUVAndTexture(DirectX::XMFLOAT2 UV, const
     {
         return DirectX::XMUINT4(0, 0, 0, 0);
     }
-    //TODO : don't know if it should be fliped
-    //In case of uv.x|y > 1
+
     UV.x -= floor(UV.x);
     UV.y -= floor(UV.y);
-    //UV.y = 1 - UV.y;
-    //UV.x = 1 - UV.x;
         
     int texPosX = UV.x * (texture->width);
     int texPosY = UV.y * (texture->height);
@@ -945,7 +1140,6 @@ Voxel* ModelToVoxel::CreateVoxelModelCPU() {
     return voxelGrid;
 }
 
-//TODO : DO WITH VERTEX AND VOXEL POSITION
 void ModelToVoxel::lineToLine(
     const DirectX::XMINT3& startVoxel,
     const DirectX::XMINT3& endVoxel,

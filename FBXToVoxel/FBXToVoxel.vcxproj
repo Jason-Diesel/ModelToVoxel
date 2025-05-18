@@ -138,6 +138,7 @@
     <ClCompile Include="Chunk.cpp" />
     <ClCompile Include="ModelToVoxel.cpp" />
     <ClCompile Include="ReadWriteVoxels.cpp" />
+    <ClCompile Include="SharedVoxelFunctions.cpp" />
     <ClCompile Include="SpecialVoxelShader.cpp" />
     <ClCompile Include="Start.cpp" />
     <ClCompile Include="VoxelScene.cpp" />
@@ -147,6 +148,7 @@
     <ClInclude Include="Chunk.h" />
     <ClInclude Include="ModelToVoxel.h" />
     <ClInclude Include="ReadWriteVoxels.h" />
+    <ClInclude Include="SharedVoxelFunctions.h" />
     <ClInclude Include="SpecialVoxelShader.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="VoxelAndVertecies.h" />
@@ -198,6 +200,14 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="VoxelPixelShaderNoLight.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
     </FxCompile>
     <FxCompile Include="VoxelVertexShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>

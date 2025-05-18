@@ -3,7 +3,9 @@
 #include "ReadWriteVoxels.h"
 #include "ReadBackBuffer.h"
 #include "GraphicsBufferWithData.h"
+#include "Chunk.h"
 
+#include "SharedVoxelFunctions.h"
 
 struct TextureForVoxels {
 	~TextureForVoxels();
@@ -26,7 +28,6 @@ struct VoxelModel {
 	std::vector<TextureViewClass*> texturesGPU;
 	std::vector<TextureForVoxels*> texturesCPU;
 	std::vector<DirectX::XMINT4> IndeciesStartAndEnd;//Start indecies, end indecies, MaterialIndex On CPU, Material IndexOnGPU
-	//MATERIALS
 };
 
 class ModelToVoxel : public Scene
@@ -93,6 +94,25 @@ private:
 		DirectX::XMFLOAT4 minSizes;
 		DirectX::XMFLOAT4 voxelSize;
 	}creatingVoxelModelDataData;
+
+
+	//Voxel Model Showing
+	static const uint32_t chunkSize = 256;
+	std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, Chunk*>>> chunks;
+
+	Model* voxelModels;
+
+	Shader* shaderPtrForVoxel;
+	Shader* shaderPtrForShadowVoxel;
+	uint32_t voxelMinimizerComputeShader;
+
+	TextureHeap translationTextureHeapUAV;
+
+	DirectX::XMFLOAT3 spinAround;
+	float distanceFromMiddle = 10;
+	float cameraHeight = 0;
+
+	void createRenderingVoxelModel(const Voxel* voxels, const DirectX::XMUINT3& sizes);
 };
 
 void OpenFileDialog(std::string& fileName);

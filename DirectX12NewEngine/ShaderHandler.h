@@ -4,6 +4,7 @@
 #include "Renderer.h"
 #include "ConstantBuffers.h"
 #include "LightHandler.h"
+#include <unordered_set>
 
 
 class ShaderHandler {
@@ -54,4 +55,7 @@ private:
 	Renderer* renderer;
 	LightHandler* lightHandler;
 	std::vector<Shader> shaders;
+
+	int gotShader(const std::string shader);
+	std::unordered_map<std::string, int> GottenShaders;
 };

@@ -69,7 +69,6 @@ void VoxelScene::Start()
 
     imguiHandler->addLight(lights->getLight(1));
 
-    uint32_t size = chunkSize;
     for (uint32_t i = 0; i < NROFLOD; i++)
     {
         voxelModels[i] = GetVoxelModel(1 << (i), chunkSize >> (i));
