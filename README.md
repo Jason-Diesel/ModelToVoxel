@@ -10,7 +10,8 @@ Oops, this code is not meant to be readeble to other humans, but give it a try i
 
 <strong>Installation</strong>
 <br>
-Open Up the visual studio project in Visual studio 2022, set FBXToVoxel as the startup project, Go into the DirectX12NewEngine folder -> Library -> Assimp -> lib and copy the assimp-vc143-mtd.dll and paste it into ($SolutionDir)/x64/Debug or ($SolutionDir)/x64/Release folder. (($SolutionDir)/x64/Release and ($SolutionDir)/x64/Debug will probably not exist, and there for you will have to create these directories by yourself, or run the program once and let it fail)
+Open Up the visual studio project in Visual studio 2022, set FBXToVoxel as the startup project, Go into the DirectX12NewEngine folder -> Library -> Assimp -> lib and copy the assimp-vc143-mtd.dll and paste it into ($SolutionDir)/x64/Debug or ($SolutionDir)/x64/Release folder. (($SolutionDir)/x64/Release and ($SolutionDir)/x64/Debug will probably not exist, and there for you will have to create these directories by yourself, or run the program once and let it fail).
+Now run program and you are done.
 <br>
 
 An application that creates voxel models from other models.
@@ -18,6 +19,12 @@ An application that creates voxel models from other models.
 The application can take everything that the assimp library can take (2024) https://github.com/assimp/assimp, but not the ownFileType for the engine.
 <br>
 The engine is my own created with DirectX 12 (Sorry Linux and Mac users)
+<br>
+The .vox files looks like this:
+Size.x (uint32_t)<br>
+Size.y (uint32_t)<br>
+Size.z (uint32_t)<br>
+Voxels (uint16_t[3]) * Size.x * Size.y * Size.z (Voxels are 3 uint16_t with the first value being red color, second green color, and last blue, but 0,0,0 is air/transparent). 
 <br>
 
 <strong>Move with WASD, Shift(Down), Space(up) and CTRL(faster speed).</strong>
