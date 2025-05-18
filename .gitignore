@@ -10,7 +10,7 @@
 *.userosscache
 *.sln.docstates
 *.fbx
-##*.png
+*.png
 !textures/DefMat.png
 
 # User-specific files (MonoDevelop/Xamarin Studio)
