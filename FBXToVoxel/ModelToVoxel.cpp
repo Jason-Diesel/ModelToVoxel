@@ -10,7 +10,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-
+//Test
 //STD::MAX/MIN WILL NOT WORK, FINE I DO IT MYSELF
 #define max(x, y) x > y ? x : y
 #define min(x, y) x < y ? x : y
