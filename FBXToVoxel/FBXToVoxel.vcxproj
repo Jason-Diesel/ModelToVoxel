@@ -162,6 +162,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="ComputeVoxelMinimizer.hlsl">
