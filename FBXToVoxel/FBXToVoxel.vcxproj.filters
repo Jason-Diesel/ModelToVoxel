@@ -39,6 +39,9 @@
     <ClCompile Include="SpecialVoxelShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SharedVoxelFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ModelToVoxel.h">
@@ -65,6 +68,9 @@
     <ClInclude Include="SpecialVoxelShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SharedVoxelFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -80,6 +86,12 @@
       <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="PixelVoxelShadow.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="ComputeVoxelMinimizer.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="VoxelPixelShaderNoLight.hlsl">
       <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

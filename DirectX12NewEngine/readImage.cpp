@@ -8,7 +8,8 @@ void readImage(
 	ResourceManager* rm,
 	Graphics* gfx,
 	D3D12_RESOURCE_FLAGS resourceFlags,
-	D3D12_RESOURCE_STATES resourceState
+	D3D12_RESOURCE_STATES resourceState,
+	uint32_t commandThread
 ) 
 {
 	DirectX::ScratchImage image;
@@ -87,11 +88,11 @@ void readImage(
 		))
 	}
 
-	CheckHR(gfx->getCommandAllocator()->Reset())
-	CheckHR(gfx->getCommandList()->Reset(gfx->getCommandAllocator(), nullptr))
+	CheckHR(gfx->getCommandAllocator(commandThread)->Reset())
+	CheckHR(gfx->getCommandList(commandThread)->Reset(gfx->getCommandAllocator(commandThread), nullptr))
 
 	UpdateSubresources(
-		gfx->getCommandList(),
+		gfx->getCommandList(commandThread),
 		theReturn->srvResource.Get(),
 		uploadBuffer.Get(),
 		0, 0,
@@ -104,11 +105,11 @@ void readImage(
 			theReturn->srvResource.Get(),
 			D3D12_RESOURCE_STATE_COPY_DEST, resourceState
 		);
-		gfx->getCommandList()->ResourceBarrier(1, &Barrier);
+		gfx->getCommandList(commandThread)->ResourceBarrier(1, &Barrier);
 	}
 	{
-		CheckHR(gfx->getCommandList()->Close())
-		ID3D12CommandList* const commandLists[] = { gfx->getCommandList() };
+		CheckHR(gfx->getCommandList(commandThread)->Close())
+		ID3D12CommandList* const commandLists[] = { gfx->getCommandList(commandThread) };
 		gfx->getCommandQueue()->ExecuteCommandLists(_countof(commandLists), commandLists);
 	}
 	CheckHR(gfx->getCommandQueue()->Signal(gfx->getFence(), ++gfx->getFenceValue()))
@@ -119,6 +120,7 @@ void readImage(
 	}
 
 	theReturn->textureType = D3D12_SRV_DIMENSION_TEXTURE2D;
+	theReturn->UAVType = D3D12_UAV_DIMENSION_TEXTURE2D;
 	delete mipChain;
 	rm->addResource(theReturn, ExtraNamingTexture + filePath);
 }
@@ -133,7 +135,8 @@ void CreateImage(
 	D3D12_RESOURCE_FLAGS resourceFlags,	//D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS or D3D12_RESOURCE_FLAG_NONE
 	D3D12_RESOURCE_STATES resourceState,//D3D12_RESOURCE_STATE_UNORDERED_ACCESS or D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE or D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE
 	DXGI_FORMAT format,					//ex : DXGI_FORMAT_R32G32B32A32_FLOAT
-	bool threeD							//If it's in 3D or 2D
+	bool threeD,						//If it's in 3D or 2D
+	const uint32_t& nrOfMips
 )
 {
 	const D3D12_RESOURCE_DESC texDesc = {
@@ -217,7 +220,8 @@ void CreateImage(
 TextureViewClass* createTexture(
 	const std::string& filePath, 
 	ResourceManager* rm,
-	Graphics* gfx
+	Graphics* gfx,
+	uint32_t commandThread
 )
 {
 	struct stat buffer;
@@ -237,12 +241,12 @@ TextureViewClass* createTexture(
 	theReturn = new TextureViewClass();
 
 	//readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+	readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, commandThread);
 
 	return theReturn;
 }
 
-TextureViewClass* createTextureWithWriteAccess(const std::string& filePath, ResourceManager* rm, Graphics* gfx)
+TextureViewClass* createTextureWithWriteAccess(const std::string& filePath, ResourceManager* rm, Graphics* gfx, uint32_t commandThread)
 {
 	struct stat buffer;
 	if (!(stat(filePath.c_str(), &buffer) == 0)) {
@@ -260,8 +264,16 @@ TextureViewClass* createTextureWithWriteAccess(const std::string& filePath, Reso
 	}
 
 	theReturn = new TextureViewClass();
-	readImage(theReturn, filePath, rm, gfx, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
+	readImage(
+		theReturn, 
+		filePath, 
+		rm, 
+		gfx, 
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, 
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,//D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, 
+		commandThread
+	);
+	//D3D12_RESOURCE_STATE_UNORDERED_ACCESS
 	return theReturn;
 }
 
@@ -279,9 +291,74 @@ TextureViewClass* createUAV(void* data, const uint32_t sizeofType, const DirectX
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		format,
-		false
+		false,
+		1
 	);
 	return returnData;
+}
+
+TextureViewClass* createUAV(
+	void* data, 
+	const uint32_t sizeofType, 
+	const DirectX::XMINT3& size,
+	ResourceManager* rm, 
+	Graphics* gfx, 
+	const DXGI_FORMAT format, 
+	const uint32_t& nrOfMips
+)
+{
+	TextureViewClass* returnData = new TextureViewClass();
+	CreateImage(
+		returnData,
+		data,
+		DirectX::XMINT3(size.x, size.y, size.z),
+		sizeofType,
+		rm,
+		gfx,
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		format,
+		size.z > 1 ? true : false,
+		nrOfMips
+	);
+	return returnData;
+}
+
+TextureViewClass* createEmptyUAV(
+	const uint32_t sizeofType, 
+	const DirectX::XMINT3& size,  
+	Graphics* gfx, 
+	const DXGI_FORMAT format
+)
+{
+	TextureViewClass* theReturn = new TextureViewClass();
+
+	const D3D12_RESOURCE_DESC texDesc = {
+		.Dimension = size.z > 0 ? D3D12_RESOURCE_DIMENSION_TEXTURE3D : D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+		.Alignment = 0,
+		.Width = static_cast<UINT>(size.x),
+		.Height = static_cast<UINT>(size.y),
+		.DepthOrArraySize = size.z > 0 ? (uint16_t)size.z : uint16_t(1),
+		.MipLevels = 1,
+		.Format = format,
+		.SampleDesc = {1, 0},
+		.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+		.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
+	};
+
+	const CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
+	CheckHR(gfx->getDevice()->CreateCommittedResource(
+		&heapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		nullptr,
+		IID_PPV_ARGS(&theReturn->srvResource)
+	))
+
+	theReturn->textureType = size.z > 1 ? D3D12_SRV_DIMENSION_TEXTURE3D : D3D12_SRV_DIMENSION_TEXTURE2D;
+	theReturn->UAVType = size.z > 1 ? D3D12_UAV_DIMENSION_TEXTURE3D : D3D12_UAV_DIMENSION_TEXTURE2D;
+	return theReturn;
 }
 
 TextureViewClass* createTexture(void* data, const uint32_t sizeofType, const DirectX::XMINT2& size, ResourceManager* rm, Graphics* gfx, const DXGI_FORMAT format)
@@ -297,12 +374,21 @@ TextureViewClass* createTexture(void* data, const uint32_t sizeofType, const Dir
 		D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
 		format,
-		false
+		false,
+		1
 	);
 	return returnData;
 }
 
-TextureViewClass* createTexture(void* data, const uint32_t sizeofType, const DirectX::XMINT3& size, ResourceManager* rm, Graphics* gfx, const DXGI_FORMAT format)
+TextureViewClass* createTexture(
+	void* data, 
+	const uint32_t sizeofType, 
+	const DirectX::XMINT3& size, 
+	ResourceManager* rm, 
+	Graphics* gfx, 
+	const DXGI_FORMAT format,
+	const uint32_t& nrOfMips
+)
 {
 	TextureViewClass* returnData = new TextureViewClass();
 	CreateImage(
@@ -315,7 +401,8 @@ TextureViewClass* createTexture(void* data, const uint32_t sizeofType, const Dir
 		D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
 		format,
-		true
+		true,
+		nrOfMips
 	);
 	return returnData;
 }

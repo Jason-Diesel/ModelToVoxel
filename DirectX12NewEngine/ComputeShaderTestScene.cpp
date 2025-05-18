@@ -14,7 +14,7 @@ ComputeShaderTestScene::~ComputeShaderTestScene()
 void ComputeShaderTestScene::Start()
 {
 	std::vector<MaterialDescription> aMaterial;
-	aMaterial.push_back(MaterialDescription({ 1 }));
+	aMaterial.push_back(MaterialDescription( 1,  D3D12_DESCRIPTOR_RANGE_TYPE_UAV ));
 	computeShader = shaderHandler->createShader(0, aMaterial, "ComputeShaderTest.cso");
 	UAVTextureHeap.init(1, gfx->getDevice());
 

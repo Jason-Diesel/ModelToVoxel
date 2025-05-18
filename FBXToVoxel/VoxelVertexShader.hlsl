@@ -24,6 +24,11 @@ cbuffer Transform : register(b1)
     row_major matrix transform;
 };
 
+cbuffer MaterialBuffer : register(b2)
+{
+    int4 materialIndex; //Diffuse, LOD
+}
+
 VertexOutput main(VertexInput input)
 {
     VertexOutput output;
@@ -42,10 +47,12 @@ VertexOutput main(VertexInput input)
     }
     
     //calculate the rest
-    output.position.xyz = input.position.xyz + (output.normal * 0.01);
+    output.position.xyz = input.position.xyz; //+ (output.normal * 0.10);
     output.position = mul(float4(output.position.xyz, 1.0), mvp);
     
-    output.localPosition.xyz = input.position - (output.normal * bias);
+    float lod = materialIndex.y;
+    output.localPosition.xyz = (input.position - (output.normal * bias));
+    output.localPosition.xyz /= pow(2, lod);
     
     return output;
 }

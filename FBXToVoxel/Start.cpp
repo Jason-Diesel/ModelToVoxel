@@ -27,9 +27,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
 	{
-		Scene* testScene = new ModelToVoxel();//IS DELETED IN SCENEHANDLER
+		Scene* ModelScene = new ModelToVoxel();//IS DELETED IN SCENEHANDLER
 		//Scene* Voxelscene = new VoxelScene();//IS DELETED IN SCENEHANDLER
-		Engine engine(testScene);
+		Engine engine(ModelScene);
 		engine.start();
 	}
 	//ReportLiveObjects();//FOR SOME FUCKING REASON MAIN_DEVICE IS STILL LIVE!

@@ -13,6 +13,6 @@ public:
 	const uint32_t WindowWidth() const;
 private:
 	void confineCoursor();
-	uint32_t windowWidth = 1400;
-	uint32_t windowHeight = 960;
+	uint32_t windowWidth = 1920;
+	uint32_t windowHeight = 1080;
 };

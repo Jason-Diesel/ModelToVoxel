@@ -28,14 +28,16 @@ void SpecialVoxelShader::createRootSignatureS(
 	rootParameters[descriptorIndex++].InitAsDescriptorTable(1, &descriptorRanges[index++], D3D12_SHADER_VISIBILITY_ALL);
 
 	//BindLess TextureHeap
-	descriptorRanges[index].Init(
-		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-		MAXNROFMATERIALS,
-		1,
-		0
-	);
-	rootParameters[descriptorIndex++].InitAsDescriptorTable(1, &descriptorRanges[index++], D3D12_SHADER_VISIBILITY_ALL);
-
+	if (descriptorRanges.size() > 1)
+	{
+		descriptorRanges[index].Init(
+			D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+			MAXNROFMATERIALS,
+			1,
+			0
+		);
+		rootParameters[descriptorIndex++].InitAsDescriptorTable(1, &descriptorRanges[index++], D3D12_SHADER_VISIBILITY_ALL);
+	}
 
 	//all other constantBuffers
 	for (uint32_t i = 0; i < nrOfConstantBufferViews; i++)

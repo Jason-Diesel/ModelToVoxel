@@ -38,11 +38,11 @@ float4 main(PixelShaderInput input) : SV_TARGET
     }
     
     int4 location = int4(input.localPosition.xyz, 0);
-    if (location.x > 200 || location.y > 200 || location.z > 200 ||
-        location.x < 0 || location.y < 0 || location.z < 0)
-    {
-        discard;
-    }
+    //if (location.x > 128 || location.y > 128 || location.z > 128 ||
+    //    location.x < 0 || location.y < 0 || location.z < 0)
+    //{
+    //    discard;
+    //}
     
     uint voxelColor = GetVoxles(materialIndex.x).Load(location);
     

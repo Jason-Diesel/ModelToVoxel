@@ -33,12 +33,6 @@ cbuffer LightData : register(b3)
 Texture3D<uint> bindless_Voxels : register(t0, space0);
 Texture2D<float4> bindless_textures[MAXNROFMATERIALS] : register(t1, space0);
 
-
-Texture3D<uint> GetVoxles(uint textureIndex)
-{
-    return bindless_Voxels;
-}
-
 Texture2D<float4> GetTextures(uint textureIndex)
 {
     return bindless_textures[textureIndex];
@@ -72,6 +66,15 @@ float shadowLevel(float bias, int lightIndex, float3 shadowMapChoords)
     float shadowReturn = 0;
 
     //SOFT SHADOWS BUT CAN BE HARD
+    if (shadowSoftness < 1)
+    {
+        float sm = shadowMap.SampleLevel(samp, float2(shadowMapChoords.xy), 0).r;
+        if (sm + bias < shadowMapChoords.z)
+        {
+            shadowReturn = 1.0f;
+        }
+        return shadowReturn;
+    }
     for (int y = -shadowSoftness; y <= shadowSoftness; y++)
     {
         for (int x = -shadowSoftness; x <= shadowSoftness; x++)
@@ -94,20 +97,15 @@ float4 main(PixelShaderInput input) : SV_TARGET
     }
     
     int4 location = int4(input.localPosition.xyz, 0);
-    if (location.x > 256 || location.y > 256 || location.z > 256 ||
-        location.x < 0 || location.y < 0 || location.z < 0)
-    {
-        discard;
-    }
     
-    uint voxelColor = GetVoxles(materialIndex.x).Load(location);
+    uint voxelColor = bindless_Voxels.Load(location);
     
     if (voxelColor == 0)
     {
         discard;
     }
     
-    const float3 ka = float3(0.1, 0.1, 0.1);
+    const float3 ka = float3(0.3, 0.3, 0.3);
     const float Shininess = 32.f;
     const float specularStrength = 0.5f;
     const float3 viewDir = normalize(input.fragpos.xyz - cameraPos.xyz);
@@ -144,7 +142,6 @@ float4 main(PixelShaderInput input) : SV_TARGET
         }
 
         float3 lightDir = normalize(input.fragpos.xyz - LightPosoLightType[i].xyz);
-        //float3 halfWayDir = normalize(lightDir - viewDir);
         
         //Diffuse//IT'S wrong here
         float3 defuse_light;

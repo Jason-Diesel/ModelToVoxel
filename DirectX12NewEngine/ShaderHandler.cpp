@@ -12,7 +12,7 @@ void ShaderHandler::init()
 {
 	//create a default shader
 	std::vector<MaterialDescription> aMaterial;
-	aMaterial.push_back(MaterialDescription({ 1 }));
+	aMaterial.push_back(MaterialDescription(1));
 	this->createNoLightShader(0, gfx->getInputLayout(0), "VertexShadow.cso", "PixelShadow.cso");
 	this->createShader(0, aMaterial, gfx->getInputLayout(0), "VertexShader.cso", "PixelShader.cso");
 }
@@ -26,6 +26,13 @@ int ShaderHandler::createShader(
 	bool wireFrame
 )
 {
+	{
+		const int shader = gotShader(vertexShader + pixelShader);
+		if (shader >= 0)
+		{
+			return shader;
+		}
+	}
 	shaders.resize(shaders.size() + 1);
 	shaders.back().init(
 		gfx->getDevice(),
@@ -36,6 +43,8 @@ int ShaderHandler::createShader(
 		pixelShader,
 		wireFrame
 		);
+
+	GottenShaders.insert(std::pair<std::string, int>(vertexShader + pixelShader, shaders.size() - 1));
 	return static_cast<uint32_t>(shaders.size() - 1);
 }
 
@@ -50,6 +59,14 @@ int ShaderHandler::createShader(
 	bool wireFrame
 )
 {
+	{
+		const int shader = gotShader(vertexShader + hullShader + domainShader + pixelShader);
+		if (shader >= 0)
+		{
+			return shader;
+		}
+	}
+
 	shaders.resize(shaders.size() + 1);
 	shaders.back().init(
 		gfx->getDevice(),
@@ -62,11 +79,20 @@ int ShaderHandler::createShader(
 		pixelShader,
 		wireFrame
 	);
+	GottenShaders.insert(std::pair<std::string, int>(vertexShader + hullShader + domainShader + pixelShader, shaders.size() - 1));
 	return static_cast<uint32_t>(shaders.size() - 1);
 }
 
 int ShaderHandler::createNoLightShader(const uint32_t nrOfConstantBufferViews, const std::vector<D3D12_INPUT_ELEMENT_DESC>& customInputLayout, const std::string& vertexShader, const std::string& pixelShader)
 {
+	{
+		const int shader = gotShader(vertexShader + pixelShader);
+		if (shader >= 0)
+		{
+			return shader;
+		}
+	}
+
 	shaders.resize(shaders.size() + 1);
 	shaders.back().initShadow(
 		gfx->getDevice(),
@@ -75,11 +101,21 @@ int ShaderHandler::createNoLightShader(const uint32_t nrOfConstantBufferViews, c
 		vertexShader,
 		pixelShader
 	);
+
+	GottenShaders.insert(std::pair<std::string, int>(vertexShader + pixelShader, shaders.size() - 1));
 	return static_cast<uint32_t>(shaders.size() - 1);
 }
 
 int ShaderHandler::createShader(const uint32_t nrOfConstantBufferViews, const std::vector<MaterialDescription>& Materials, const std::string& computeShader)
 {
+	{
+		const int shader = gotShader(computeShader);
+		if (shader >= 0)
+		{
+			return shader;
+		}
+	}
+
 	shaders.resize(shaders.size() + 1);
 	shaders.back().init(
 		gfx->getDevice(),
@@ -87,6 +123,8 @@ int ShaderHandler::createShader(const uint32_t nrOfConstantBufferViews, const st
 		Materials,
 		computeShader
 	);
+	GottenShaders.insert(std::pair<std::string, int>(computeShader, shaders.size() - 1));
+
 	return static_cast<uint32_t>(shaders.size() - 1);
 }
 
@@ -152,4 +190,14 @@ void ShaderHandler::setComputeShader(const uint32_t shaderIndex)
 {
 	gfx->getCommandList()->SetPipelineState(shaders[shaderIndex].getPipeLineState());
 	gfx->getCommandList()->SetComputeRootSignature(shaders[shaderIndex].getRootSignature());
+}
+
+int ShaderHandler::gotShader(const std::string shader)
+{
+	if (GottenShaders.contains(shader))
+	{
+		return GottenShaders.find(shader)->second;
+	}
+	//if we don't have it return -1
+	return -1;
 }

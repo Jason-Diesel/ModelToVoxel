@@ -15,6 +15,7 @@ public:
 	void rotate(const DirectX::XMFLOAT3& roation);
 
 	void addPositionBasedOnDirection(DirectX::XMFLOAT3 direction, float speed = 1);
+	void lookAt(const DirectX::XMFLOAT3& lookAtPosition);
 
 	//getters
 	DirectX::XMFLOAT3 getPostion() const;

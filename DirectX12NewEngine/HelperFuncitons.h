@@ -32,7 +32,7 @@ namespace HF {
 	void rotationMatrix(DirectX::XMMATRIX& matrix, float xRotation, float yRotation, float zRotation);
 
 	DirectX::XMFLOAT3 add(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b);
-	float squareDistance(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b);
+	float magDistance(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b);
 	float distance(const DirectX::XMINT3& a, const DirectX::XMINT3& b);
 	float distance(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b);
 

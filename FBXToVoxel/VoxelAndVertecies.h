@@ -7,7 +7,10 @@ struct Vertecies {
 };
 
 struct Voxel {
-    uint8_t rgb[3] = { 0, 0, 0 };
+    uint16_t rgb[3] = { 0, 0, 0 };
+};
+struct VoxelGPU {
+    uint32_t rgb[3] = { 0, 0, 0 };
 };
 
 struct VoxelVertecies {

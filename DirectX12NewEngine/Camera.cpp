@@ -58,6 +58,17 @@ void Camera::addPositionBasedOnDirection(DirectX::XMFLOAT3 direction, float spee
 	postion.z -= trans.y * speed;
 }
 
+void Camera::lookAt(const DirectX::XMFLOAT3& lookAtPosition)
+{
+	DirectX::XMVECTOR eye = DirectX::XMLoadFloat3(&postion);
+	DirectX::XMVECTOR lookAt = DirectX::XMLoadFloat3(&lookAtPosition);
+	DirectX::XMVECTOR dir = DirectX::XMVectorSubtract(lookAt, eye);
+	dir = DirectX::XMVector3Normalize(dir);
+
+	rotation.y = asinf(DirectX::XMVectorGetY(dir));
+	rotation.x = atan2f(DirectX::XMVectorGetX(dir), DirectX::XMVectorGetZ(dir));
+}
+
 DirectX::XMFLOAT3 Camera::getPostion() const
 {
 	return this->postion;
