@@ -6,7 +6,7 @@
 
 <strong>
 Oops, this code is not meant to be readeble to other humans, but give it a try if you want to
-</strong><br>
+</strong><br><br>
 
 <strong>Installation</strong>
 <br>
