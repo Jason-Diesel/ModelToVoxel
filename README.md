@@ -8,6 +8,11 @@
 Oops, this code is not meant to be readeble to other humans, but give it a try if you want to
 </strong><br>
 
+<strong>Installation</strong>
+<br>
+Open Up the visual studio project in Visual studio 2022, set FBXToVoxel as the startup project, Go into the DirectX12NewEngine folder -> Library -> Assimp -> lib and copy the assimp-vc143-mtd.dll and paste it into ($SolutionDir)/x64/Debug or ($SolutionDir)/x64/Release folder. (($SolutionDir)/x64/Release and ($SolutionDir)/x64/Debug will probably not exist, and there for you will have to create these directories by yourself, or run the program once and let it fail)
+<br>
+
 An application that creates voxel models from other models.
 <br>
 The application can take everything that the assimp library can take (2024) https://github.com/assimp/assimp, but not the ownFileType for the engine.
