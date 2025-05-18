@@ -11,6 +11,8 @@
 *.sln.docstates
 *.fbx
 *.png
+*.tga
+*.jpg
 !textures/DefMat.png
 
 # User-specific files (MonoDevelop/Xamarin Studio)
