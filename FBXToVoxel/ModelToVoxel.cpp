@@ -274,7 +274,7 @@ void ModelToVoxel::RenderUI()
             "Go the VoxelScene for better lightning on a voxel Model"
         );
 
-        ImGui::InputInt3("Voxel Grid Size", (int*)&sizes);
+        ImGui::InputInt3("Voxel Grid Size (XYZ)", (int*)&sizes);
         if (ImGui::Button("File To Voxolize"))
         {
             OpenFileDialog(this->inputFileName);
@@ -779,7 +779,14 @@ void ModelToVoxel::LoadModelForCPU(VoxelModel& theReturn, ResourceManager* rm)
 {
     struct stat buffer;
     if (!(stat(this->inputFileName.c_str(), &buffer) == 0)) {
-        information = "Error : Can't find model";
+        if (inputFileName == "")
+        {
+            information = "Error : no file name is given\n";
+        }
+        else {
+            information = "Error : Can't find model " + inputFileName + "\n";
+        }
+        
         return;
     }
 
