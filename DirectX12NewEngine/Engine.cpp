@@ -69,7 +69,7 @@ void Engine::init()
 	DefaultMaterialData defmatData;
 	mat->init(&gfx, 1, sizeof(defmatData));
 	
-	mat->addTexture(0, createTexture("../textures/7fJYp.png", &rm, &gfx), &gfx);
+	mat->addTexture(0, createTexture("../textures/DefMat.png", &rm, &gfx), &gfx);
 	rm.addResource(mat, "_Def_Material");
 	
 	{
